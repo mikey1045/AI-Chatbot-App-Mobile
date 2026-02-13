@@ -10,6 +10,13 @@ import HistoryScreen from './src/screens/HistoryScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import { Colors, FontSizes } from './src/constants/Colors';
 import { NavigationContext, ScreenName, User } from './src/context/NavigationContext';
+import {
+  subscribeToAuthChanges,
+  signOutUser,
+  tryAutoSignIn,
+  User as FirebaseUser
+} from './src/config/firebaseConfig';
+import { setCurrentUserId } from './src/services/chatStorage';
 
 // Loading Screen
 const LoadingScreen = () => (
@@ -30,14 +37,57 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Simulate initial auth check
+  // Thử tự động đăng nhập khi mở app
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const autoLogin = async () => {
+      try {
+        const autoUser = await tryAutoSignIn();
+        if (autoUser) {
+          // Set user ID cho chat storage
+          setCurrentUserId(autoUser.uid);
+          setUser({
+            id: autoUser.uid,
+            name: autoUser.displayName || autoUser.email?.split('@')[0] || 'User',
+            email: autoUser.email || '',
+          });
+          setCurrentScreen('chat');
+          setIsLoading(false);
+          return; // Đã đăng nhập thành công, không cần subscribe
+        }
+      } catch (error) {
+        console.log('Auto sign-in skipped');
+      }
+
+      // Nếu không auto login được, subscribe để chờ đăng nhập
       setIsLoading(false);
-      setCurrentScreen('login'); // No stored user, go to login
-    }, 1500);
-    return () => clearTimeout(timer);
+      setCurrentScreen('login');
+    };
+
+    autoLogin();
   }, []);
+
+  // Handle Firebase auth state changes
+  useEffect(() => {
+    const unsubscribe = subscribeToAuthChanges((firebaseUser) => {
+      if (firebaseUser) {
+        // User is signed in - set user ID cho chat storage
+        setCurrentUserId(firebaseUser.uid);
+        setUser({
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+          email: firebaseUser.email || '',
+        });
+        setCurrentScreen('chat');
+      } else if (!isLoading) {
+        // User is signed out - clear user ID
+        setCurrentUserId(null);
+        setUser(null);
+        setCurrentScreen('login');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [isLoading]);
 
   // Navigation functions
   const navigate = (screen: ScreenName) => {
@@ -51,23 +101,27 @@ export default function App() {
 
   // Auth functions
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Simulate login
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    if (email && password) {
-      setUser({
-        id: '1',
-        name: 'User',
-        email: email,
-      });
-      setCurrentScreen('chat');
-      return true;
-    }
+    // Not used with Google Sign-In
     return false;
   };
 
-  const logout = () => {
-    setUser(null);
-    setCurrentScreen('login');
+  const loginWithFirebaseUser = (firebaseUser: FirebaseUser) => {
+    setUser({
+      id: firebaseUser.uid,
+      name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+      email: firebaseUser.email || '',
+    });
+    setCurrentScreen('chat');
+  };
+
+  const logout = async () => {
+    try {
+      await signOutUser();
+      setUser(null);
+      setCurrentScreen('login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   // Render current screen
@@ -93,7 +147,7 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <NavigationContext.Provider value={{ navigate, goBack, user, login, logout }}>
+        <NavigationContext.Provider value={{ navigate, goBack, user, login, loginWithFirebaseUser, logout }}>
           <StatusBar style="light" backgroundColor={Colors.background} />
           {renderScreen()}
         </NavigationContext.Provider>

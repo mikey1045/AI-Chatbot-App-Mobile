@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIA AI - Đăng nhập</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            max-width: 400px;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        p {
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .btn {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 15px 30px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="spinner"></div>
+        <h1>VIA AI</h1>
+        <p>Đang xác thực đăng nhập...</p>
+        <p id="status">Đang chuyển hướng đến ứng dụng...</p>
+        <a id="openApp" class="btn" style="display:none;">Mở ứng dụng VIA AI</a>
+    </div>
+
+    <script>
+        // Get the full URL with all parameters
+        const fullUrl = window.location.href;
+
+        // Create app deep link with the authentication parameters
+        const appUrl = 'chatboxai://finishSignUp' + window.location.search;
+
+        // Try to open the app
+        function openApp() {
+            window.location.href = appUrl;
+        }
+
+        // Show manual button after delay
+        setTimeout(function () {
+            document.getElementById('status').textContent = 'Nếu ứng dụng không tự mở, hãy nhấn nút bên dưới:';
+            document.getElementById('openApp').style.display = 'inline-block';
+            document.getElementById('openApp').href = appUrl;
+        }, 2000);
+
+        // Try to open app immediately
+        openApp();
+    </script>
+</body>
+
+</html>

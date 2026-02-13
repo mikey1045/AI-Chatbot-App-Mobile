@@ -1,5 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSizes, BorderRadius } from '../constants/Colors';
 
 export interface Message {
@@ -11,10 +13,19 @@ export interface Message {
 
 interface ChatBubbleProps {
     message: Message;
+    onReload?: (messageId: string) => void;
+    onEdit?: (messageId: string) => void;
 }
 
-const ChatBubble: React.FC<ChatBubbleProps> = ({ message }) => {
+const ChatBubble: React.FC<ChatBubbleProps> = ({ message, onReload, onEdit }) => {
     const isUser = message.isUser;
+    const [isCopied, setIsCopied] = useState(false);
+
+    const handleCopy = async () => {
+        await Clipboard.setStringAsync(message.text);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+    };
 
     return (
         <View
@@ -40,6 +51,8 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message }) => {
                 ]}
             >
                 <Text
+                    selectable={true}
+                    selectionColor={Colors.primary + '66'}
                     style={[
                         styles.messageText,
                         isUser ? styles.userText : styles.aiText,
@@ -47,12 +60,52 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message }) => {
                 >
                     {message.text}
                 </Text>
-                <Text style={styles.timestamp}>
-                    {message.timestamp.toLocaleTimeString('vi-VN', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                    })}
-                </Text>
+
+                <View style={styles.footerContainer}>
+                    <Text style={styles.timestamp}>
+                        {message.timestamp.toLocaleTimeString('vi-VN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                        })}
+                    </Text>
+
+                    <View style={styles.actionButtons}>
+                        {/* Copy button */}
+                        <TouchableOpacity
+                            onPress={handleCopy}
+                            style={styles.actionBtn}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                            <Ionicons
+                                name={isCopied ? "checkmark" : "copy-outline"}
+                                size={14}
+                                color={isCopied ? Colors.primary : Colors.textMuted}
+                            />
+                        </TouchableOpacity>
+
+                        {/* Edit button - only for user messages */}
+                        {isUser && onEdit && (
+                            <TouchableOpacity
+                                onPress={() => onEdit(message.id)}
+                                style={styles.actionBtn}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                                <Ionicons name="create-outline" size={14} color={Colors.textMuted} />
+                            </TouchableOpacity>
+                        )}
+
+                        {/* Reload button - only for user messages */}
+                        {isUser && onReload && (
+                            <TouchableOpacity
+                                onPress={() => onReload(message.id)}
+                                style={styles.actionBtn}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                                <Ionicons name="reload-outline" size={14} color={Colors.textMuted} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
             </View>
         </View>
     );
@@ -110,12 +163,32 @@ const styles = StyleSheet.create({
     aiText: {
         color: Colors.aiBubbleText,
     },
+    footerContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: Spacing.xs,
+        minWidth: 60,
+    },
     timestamp: {
         fontSize: FontSizes.xs,
         color: Colors.textMuted,
-        marginTop: Spacing.xs,
-        alignSelf: 'flex-end',
     },
+    actionButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    actionBtn: {
+        padding: 4,
+        borderRadius: 4,
+    },
+    copiedText: {
+        fontSize: 10,
+        color: Colors.primary,
+        marginLeft: 4,
+        fontWeight: '500',
+    }
 });
 
 export default ChatBubble;

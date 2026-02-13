@@ -10,18 +10,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, FontSizes } from '../constants/Colors';
 
 interface MessageInputProps {
-    onSend: (message: string) => void;
+    onSend: (message: string, enableSearch: boolean) => void;
     isLoading?: boolean;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({ onSend, isLoading = false }) => {
     const [text, setText] = useState('');
+    const [isSearchEnabled, setIsSearchEnabled] = useState(false);
 
     const handleSend = () => {
         if (text.trim() && !isLoading) {
-            onSend(text.trim());
+            onSend(text.trim(), isSearchEnabled);
             setText('');
         }
+    };
+
+    const toggleSearch = () => {
+        setIsSearchEnabled(!isSearchEnabled);
     };
 
     return (
@@ -29,7 +34,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, isLoading = false }
             <View style={styles.inputContainer}>
                 <TextInput
                     style={styles.input}
-                    placeholder="Nhập tin nhắn..."
+                    placeholder={isSearchEnabled ? "Hỏi VIA AI (Có tìm kiếm web)..." : "Nhập tin nhắn..."}
                     placeholderTextColor={Colors.textMuted}
                     value={text}
                     onChangeText={setText}
@@ -38,6 +43,18 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, isLoading = false }
                     editable={!isLoading}
                     onSubmitEditing={handleSend}
                 />
+
+                <TouchableOpacity
+                    style={[styles.iconButton, isSearchEnabled && styles.iconButtonActive]}
+                    onPress={toggleSearch}
+                    disabled={isLoading}
+                >
+                    <Ionicons
+                        name={isSearchEnabled ? "globe" : "globe-outline"}
+                        size={22}
+                        color={isSearchEnabled ? Colors.primary : Colors.textMuted}
+                    />
+                </TouchableOpacity>
 
                 <TouchableOpacity
                     style={[
@@ -78,7 +95,7 @@ const styles = StyleSheet.create({
         borderRadius: BorderRadius.xl,
         borderWidth: 1,
         borderColor: Colors.border,
-        paddingHorizontal: Spacing.base,
+        paddingHorizontal: Spacing.base, // Reduced padding to fit icons
         paddingVertical: Spacing.sm,
     },
     input: {
@@ -87,6 +104,17 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
         maxHeight: 100,
         paddingVertical: Spacing.sm,
+    },
+    iconButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: Spacing.xs,
+        borderRadius: BorderRadius.full,
+    },
+    iconButtonActive: {
+        backgroundColor: Colors.surfaceHover,
     },
     sendButton: {
         width: 40,

@@ -1,9 +1,22 @@
-const GEMINI_API_KEY = 'AIzaSyBDn_jbMLPd80LafTjuQXQeaHpBRGw1n-U';
-const GEMINI_MODEL = 'gemini-2.5-flash-lite';
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_API_KEY = 'AIzaSyBudf3Y9s384hU2Kbg8zaJ2ooG8Hn0FGa0';
+
+export const GEMINI_MODELS = [
+    { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', isNew: false },
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', isNew: true },
+    { id: 'gemini-3-flash', name: 'Gemini 3 Flash', isNew: true },
+    { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro Preview', isNew: true },
+    { id: 'gemini-3-deep-think', name: 'Gemini 3 Deep Think', isNew: true },
+];
+
+const getApiUrl = (modelId: string) =>
+    `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${GEMINI_API_KEY}`;
 
 // System prompt for the AI
-const SYSTEM_PROMPT = `Bạn là VIA AI - một trợ lý AI toàn năng, thông minh và thân thiện. Bạn có kiến thức sâu rộng về mọi lĩnh vực bao gồm:
+// System prompt for the AI
+const getSystemPrompt = (userName?: string) => `Bạn là VIA AI - một trợ lý AI toàn năng, thông minh và thân thiện. 
+${userName ? `Bạn đang trò chuyện với người dùng tên là "${userName}". Hãy xưng hô thân mật và sử dụng tên "${userName}" khi phù hợp để tạo cảm giác gần gũi.` : ''}
+
+Bạn có kiến thức sâu rộng về mọi lĩnh vực bao gồm:
 - Khoa học và công nghệ
 - Y tế và sức khỏe
 - Kinh doanh và tài chính
@@ -46,44 +59,55 @@ const stripMarkdown = (text: string): string => {
         .trim();
 };
 
+// Interface for UI messages (simplified from ChatBubble)
+interface UIMessage {
+    id: string;
+    text: string;
+    isUser: boolean;
+    timestamp: Date | string;
+}
+
 interface GeminiMessage {
     role: 'user' | 'model';
     parts: { text: string }[];
 }
 
-interface ChatHistory {
-    messages: GeminiMessage[];
-}
-
-// Store chat history for context
-let chatHistory: ChatHistory = {
-    messages: []
+// Convert UI history to Gemini API format
+const formatHistoryForGemini = (history: UIMessage[]): GeminiMessage[] => {
+    return history.map(msg => ({
+        role: msg.isUser ? 'user' : 'model',
+        parts: [{ text: msg.text }]
+    }));
 };
 
-export const resetChatHistory = () => {
-    chatHistory = { messages: [] };
-};
-
-export const sendMessageToGemini = async (userMessage: string): Promise<string> => {
+export const sendMessageToGemini = async (
+    userMessage: string,
+    history: UIMessage[] = [],
+    modelId: string = 'gemini-2.5-flash-lite',
+    userName?: string,
+    enableSearch: boolean = false
+): Promise<string> => {
     try {
-        // Add user message to history
-        chatHistory.messages.push({
+        const conversationHistory = formatHistoryForGemini(history);
+
+        // Add the current user message
+        conversationHistory.push({
             role: 'user',
             parts: [{ text: userMessage }]
         });
 
         // Prepare the request body
-        const requestBody = {
+        const requestBody: any = {
             contents: [
                 {
                     role: 'user',
-                    parts: [{ text: SYSTEM_PROMPT }]
+                    parts: [{ text: getSystemPrompt(userName) }]
                 },
                 {
                     role: 'model',
-                    parts: [{ text: 'Xin chào! Tôi là VIA AI, trợ lý toàn năng của bạn. Tôi sẵn sàng hỗ trợ bạn về mọi lĩnh vực. Hãy hỏi tôi bất cứ điều gì!' }]
+                    parts: [{ text: `Xin chào${userName ? ' ' + userName : ''}! Tôi là VIA AI, trợ lý toàn năng của bạn. Tôi sẵn sàng hỗ trợ bạn về mọi lĩnh vực. Hãy hỏi tôi bất cứ điều gì!` }]
                 },
-                ...chatHistory.messages
+                ...conversationHistory
             ],
             generationConfig: {
                 temperature: 0.7,
@@ -111,7 +135,12 @@ export const sendMessageToGemini = async (userMessage: string): Promise<string> 
             ]
         };
 
-        const response = await fetch(API_URL, {
+        // Add Google Search tool if enabled
+        if (enableSearch) {
+            requestBody.tools = [{ googleSearch: {} }];
+        }
+
+        const response = await fetch(getApiUrl(modelId), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -128,24 +157,30 @@ export const sendMessageToGemini = async (userMessage: string): Promise<string> 
         const data = await response.json();
 
         // Extract the response text and clean markdown
-        const rawResponse = data.candidates?.[0]?.content?.parts?.[0]?.text ||
+        let rawResponse = data.candidates?.[0]?.content?.parts?.[0]?.text ||
             'Xin lỗi, tôi không thể xử lý yêu cầu này. Vui lòng thử lại.';
 
-        const aiResponse = stripMarkdown(rawResponse);
+        // Handle Grounding Metadata (Sources)
+        const groundingMetadata = data.candidates?.[0]?.groundingMetadata;
+        if (groundingMetadata && groundingMetadata.groundingChunks) {
+            const tempDiv = '___________________________\n';
+            let sourcesText = `\n\n${tempDiv}**Nguồn tham khảo:**\n`;
 
-        // Add AI response to history
-        chatHistory.messages.push({
-            role: 'model',
-            parts: [{ text: aiResponse }]
-        });
+            groundingMetadata.groundingChunks.forEach((chunk: any, index: number) => {
+                if (chunk.web?.title && chunk.web?.uri) {
+                    sourcesText += `${index + 1}. [${chunk.web.title}](${chunk.web.uri})\n`;
+                }
+            });
 
-        return aiResponse;
+            // Only add sources if we found any valid web chunks
+            if (sourcesText.includes('http')) {
+                rawResponse += sourcesText;
+            }
+        }
+
+        return stripMarkdown(rawResponse);
     } catch (error) {
         console.error('Error sending message to Gemini:', error);
-
-        // Remove the failed user message from history
-        chatHistory.messages.pop();
-
         throw new Error('Không thể kết nối đến AI. Vui lòng kiểm tra kết nối mạng và thử lại.');
     }
 };
@@ -153,27 +188,37 @@ export const sendMessageToGemini = async (userMessage: string): Promise<string> 
 // Simulated streaming - fetches full response then types it out word by word
 export const streamMessageToGemini = async (
     userMessage: string,
-    onChunk: (text: string) => void
+    history: UIMessage[],
+    onChunk: (text: string) => void,
+    modelId: string = 'gemini-2.5-flash-lite',
+    userName?: string,
+    enableSearch: boolean = false
 ): Promise<string> => {
     try {
-        // Add user message to history
-        chatHistory.messages.push({
+        const conversationHistory = formatHistoryForGemini(history);
+
+        // DEBUG: Log history to see if context is being passed
+        console.log('[Gemini] History length:', history.length);
+        console.log('[Gemini] History:', JSON.stringify(history.map(m => ({ role: m.isUser ? 'user' : 'model', text: m.text.substring(0, 50) }))));
+
+        // Add the current user message
+        conversationHistory.push({
             role: 'user',
             parts: [{ text: userMessage }]
         });
 
         // Prepare the request body
-        const requestBody = {
+        const requestBody: any = {
             contents: [
                 {
                     role: 'user',
-                    parts: [{ text: SYSTEM_PROMPT }]
+                    parts: [{ text: getSystemPrompt(userName) }]
                 },
                 {
                     role: 'model',
-                    parts: [{ text: 'Xin chào! Tôi là VIA AI, trợ lý toàn năng của bạn. Tôi sẵn sàng hỗ trợ bạn về mọi lĩnh vực. Hãy hỏi tôi bất cứ điều gì!' }]
+                    parts: [{ text: `Xin chào${userName ? ' ' + userName : ''}! Tôi là VIA AI, trợ lý toàn năng của bạn. Tôi sẵn sàng hỗ trợ bạn về mọi lĩnh vực. Hãy hỏi tôi bất cứ điều gì!` }]
                 },
-                ...chatHistory.messages
+                ...conversationHistory
             ],
             generationConfig: {
                 temperature: 0.7,
@@ -201,7 +246,12 @@ export const streamMessageToGemini = async (
             ]
         };
 
-        const response = await fetch(API_URL, {
+        // Add Google Search tool if enabled
+        if (enableSearch) {
+            requestBody.tools = [{ googleSearch: {} }];
+        }
+
+        const response = await fetch(getApiUrl(modelId), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -218,12 +268,33 @@ export const streamMessageToGemini = async (
         const data = await response.json();
 
         // Extract the response text and clean markdown
-        const rawResponse = data.candidates?.[0]?.content?.parts?.[0]?.text ||
+        let rawResponse = data.candidates?.[0]?.content?.parts?.[0]?.text ||
             'Xin lỗi, tôi không thể xử lý yêu cầu này. Vui lòng thử lại.';
 
-        const aiResponse = stripMarkdown(rawResponse);
+        // Handle Grounding Metadata (Sources)
+        const groundingMetadata = data.candidates?.[0]?.groundingMetadata;
+        let sourcesText = '';
+        if (groundingMetadata && groundingMetadata.groundingChunks) {
+            const tempDiv = '___________________________\n';
+            sourcesText = `\n\n${tempDiv}**Nguồn tham khảo:**\n`;
+
+            groundingMetadata.groundingChunks.forEach((chunk: any, index: number) => {
+                if (chunk.web?.title && chunk.web?.uri) {
+                    sourcesText += `${index + 1}. [${chunk.web.title}](${chunk.web.uri})\n`;
+                }
+            });
+
+            // Allow sources to remain if there are valid links
+            if (!sourcesText.includes('http')) {
+                sourcesText = '';
+            }
+        }
+
+        const aiResponse = stripMarkdown(rawResponse) + sourcesText;
 
         // Simulate typing effect - display word by word
+        // Note: We type out the main response, then append sources at the end instantly? 
+        // Or type it all. Let's type it all but maybe faster or just normal.
         const words = aiResponse.split(' ');
         let displayedText = '';
 
@@ -234,19 +305,9 @@ export const streamMessageToGemini = async (
             await new Promise(resolve => setTimeout(resolve, 30));
         }
 
-        // Add AI response to history
-        chatHistory.messages.push({
-            role: 'model',
-            parts: [{ text: aiResponse }]
-        });
-
         return aiResponse;
     } catch (error) {
         console.error('Error sending message to Gemini:', error);
-
-        // Remove the failed user message from history
-        chatHistory.messages.pop();
-
         throw new Error('Không thể kết nối đến AI. Vui lòng kiểm tra kết nối mạng và thử lại.');
     }
 };
@@ -254,5 +315,5 @@ export const streamMessageToGemini = async (
 export default {
     sendMessageToGemini,
     streamMessageToGemini,
-    resetChatHistory
+    GEMINI_MODELS
 };

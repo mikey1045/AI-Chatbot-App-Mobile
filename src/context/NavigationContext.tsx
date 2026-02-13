@@ -1,4 +1,5 @@
 import React from 'react';
+import { User as FirebaseUser } from '../config/firebaseConfig';
 
 export interface User {
     id: string;
@@ -13,6 +14,7 @@ export interface NavigationContextType {
     goBack: () => void;
     user: User | null;
     login: (email: string, password: string) => Promise<boolean>;
+    loginWithFirebaseUser: (firebaseUser: FirebaseUser) => void;
     logout: () => void;
 }
 
@@ -21,5 +23,6 @@ export const NavigationContext = React.createContext<NavigationContextType>({
     goBack: () => { },
     user: null,
     login: async () => false,
+    loginWithFirebaseUser: () => { },
     logout: () => { },
 });
