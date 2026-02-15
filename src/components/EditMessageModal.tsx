@@ -2,22 +2,22 @@ import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
-    StyleSheet,
-    TouchableOpacity,
     TextInput,
+    TouchableOpacity,
+    StyleSheet,
     Modal,
     KeyboardAvoidingView,
     Platform,
-    ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, FontSizes, BorderRadius } from '../constants/Colors';
+import { Spacing, FontSizes, BorderRadius } from '../constants/Colors';
+import { useTheme } from '../context/ThemeContext';
 
 interface EditMessageModalProps {
     visible: boolean;
     messageText: string;
     onCancel: () => void;
-    onSubmit: (editedText: string) => void;
+    onSubmit: (text: string) => void;
 }
 
 const EditMessageModal: React.FC<EditMessageModalProps> = ({
@@ -26,17 +26,18 @@ const EditMessageModal: React.FC<EditMessageModalProps> = ({
     onCancel,
     onSubmit,
 }) => {
-    const [editedText, setEditedText] = useState(messageText);
+    const { theme } = useTheme();
+    const [text, setText] = useState(messageText);
 
     useEffect(() => {
         if (visible) {
-            setEditedText(messageText);
+            setText(messageText);
         }
     }, [visible, messageText]);
 
     const handleSubmit = () => {
-        const trimmed = editedText.trim();
-        if (trimmed.length > 0) {
+        const trimmed = text.trim();
+        if (trimmed) {
             onSubmit(trimmed);
         }
     };
@@ -44,71 +45,64 @@ const EditMessageModal: React.FC<EditMessageModalProps> = ({
     return (
         <Modal
             visible={visible}
-            transparent={true}
+            transparent
             animationType="fade"
             onRequestClose={onCancel}
         >
-            <View style={styles.overlay}>
-                <KeyboardAvoidingView
-                    style={styles.centeredView}
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                >
-                    <View style={styles.modalContainer}>
-                        {/* Header */}
-                        <View style={styles.header}>
-                            <Ionicons name="create-outline" size={20} color={Colors.primary} />
-                            <Text style={styles.headerTitle}>Chỉnh sửa tin nhắn</Text>
-                            <TouchableOpacity onPress={onCancel} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                                <Ionicons name="close" size={22} color={Colors.textMuted} />
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Enlarged chat bubble with editable text */}
-                        <ScrollView
-                            style={styles.bubbleScroll}
-                            contentContainerStyle={styles.bubbleScrollContent}
-                            showsVerticalScrollIndicator={true}
-                        >
-                            <View style={styles.editBubble}>
-                                <TextInput
-                                    style={styles.editInput}
-                                    value={editedText}
-                                    onChangeText={setEditedText}
-                                    multiline
-                                    autoFocus
-                                    placeholder="Nhập tin nhắn..."
-                                    placeholderTextColor={Colors.textMuted}
-                                    selectionColor={Colors.primary}
-                                    textAlignVertical="top"
-                                />
-                            </View>
-                        </ScrollView>
-
-                        {/* Action buttons */}
-                        <View style={styles.buttonRow}>
-                            <TouchableOpacity
-                                style={styles.cancelBtn}
-                                onPress={onCancel}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={styles.cancelBtnText}>Hủy</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[
-                                    styles.submitBtn,
-                                    editedText.trim().length === 0 && styles.submitBtnDisabled
-                                ]}
-                                onPress={handleSubmit}
-                                activeOpacity={0.7}
-                                disabled={editedText.trim().length === 0}
-                            >
-                                <Ionicons name="send" size={16} color="#FFF" style={{ marginRight: 6 }} />
-                                <Text style={styles.submitBtnText}>Gửi lại</Text>
-                            </TouchableOpacity>
-                        </View>
+            <KeyboardAvoidingView
+                style={styles.overlay}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+                <View style={[styles.container, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    {/* Header */}
+                    <View style={[styles.header, { borderBottomColor: theme.border }]}>
+                        <Text style={[styles.title, { color: theme.textPrimary }]}>Chỉnh sửa tin nhắn</Text>
+                        <TouchableOpacity onPress={onCancel} style={styles.closeButton}>
+                            <Ionicons name="close" size={24} color={theme.textSecondary} />
+                        </TouchableOpacity>
                     </View>
-                </KeyboardAvoidingView>
-            </View>
+
+                    {/* Input */}
+                    <TextInput
+                        style={[styles.input, { color: theme.textPrimary, backgroundColor: theme.background, borderColor: theme.border }]}
+                        value={text}
+                        onChangeText={setText}
+                        multiline
+                        autoFocus
+                        placeholder="Nhập nội dung..."
+                        placeholderTextColor={theme.textMuted}
+                    />
+
+                    {/* Actions */}
+                    <View style={styles.actions}>
+                        <TouchableOpacity
+                            style={[styles.cancelButton, { borderColor: theme.border }]}
+                            onPress={onCancel}
+                        >
+                            <Text style={[styles.cancelText, { color: theme.textSecondary }]}>Hủy</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.submitButton,
+                                { backgroundColor: text.trim() ? theme.primary : theme.surfaceHover },
+                            ]}
+                            onPress={handleSubmit}
+                            disabled={!text.trim()}
+                        >
+                            <Ionicons name="send" size={16} color={text.trim() ? '#fff' : theme.textMuted} />
+                            <Text
+                                style={[
+                                    styles.submitText,
+                                    { color: text.trim() ? '#fff' : theme.textMuted },
+                                ]}
+                            >
+                                Gửi lại
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 };
@@ -116,98 +110,70 @@ const EditMessageModal: React.FC<EditMessageModalProps> = ({
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.65)',
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
         justifyContent: 'center',
         alignItems: 'center',
+        padding: Spacing.xl,
     },
-    centeredView: {
-        width: '100%',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-    },
-    modalContainer: {
+    container: {
         width: '100%',
         maxWidth: 500,
-        maxHeight: '80%',
-        backgroundColor: Colors.surface,
         borderRadius: BorderRadius.lg,
         borderWidth: 1,
-        borderColor: Colors.border,
         overflow: 'hidden',
     },
     header: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: Spacing.base,
-        paddingVertical: Spacing.md,
+        padding: Spacing.base,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
     },
-    headerTitle: {
-        flex: 1,
-        fontSize: FontSizes.base,
+    title: {
+        fontSize: FontSizes.lg,
         fontWeight: '600',
-        color: Colors.textPrimary,
-        marginLeft: Spacing.sm,
     },
-    bubbleScroll: {
-        maxHeight: 500,
+    closeButton: {
+        padding: Spacing.xs,
     },
-    bubbleScrollContent: {
-        padding: Spacing.base,
-    },
-    editBubble: {
-        backgroundColor: Colors.background,
+    input: {
+        margin: Spacing.base,
+        padding: Spacing.md,
         borderRadius: BorderRadius.md,
         borderWidth: 1,
-        borderColor: Colors.border,
-        padding: Spacing.base,
-        minHeight: 150,
-    },
-    editInput: {
         fontSize: FontSizes.base,
-        lineHeight: 24,
-        color: Colors.textPrimary,
-        minHeight: 200,
+        minHeight: 100,
+        maxHeight: 200,
+        textAlignVertical: 'top',
     },
-    buttonRow: {
+    actions: {
         flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: Spacing.sm,
         padding: Spacing.base,
-        borderTopWidth: 1,
-        borderTopColor: Colors.border,
-        gap: 12,
+        paddingTop: 0,
     },
-    cancelBtn: {
-        flex: 1,
-        paddingVertical: Spacing.md,
+    cancelButton: {
+        paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.base,
         borderRadius: BorderRadius.md,
-        backgroundColor: Colors.background,
         borderWidth: 1,
-        borderColor: Colors.border,
-        alignItems: 'center',
     },
-    cancelBtnText: {
-        fontSize: FontSizes.base,
-        fontWeight: '600',
-        color: Colors.textPrimary,
+    cancelText: {
+        fontSize: FontSizes.sm,
+        fontWeight: '500',
     },
-    submitBtn: {
-        flex: 1,
+    submitButton: {
         flexDirection: 'row',
-        paddingVertical: Spacing.md,
-        borderRadius: BorderRadius.md,
-        backgroundColor: Colors.primary,
         alignItems: 'center',
-        justifyContent: 'center',
+        paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.base,
+        borderRadius: BorderRadius.md,
+        gap: Spacing.xs,
     },
-    submitBtnDisabled: {
-        opacity: 0.5,
-    },
-    submitBtnText: {
-        fontSize: FontSizes.base,
+    submitText: {
+        fontSize: FontSizes.sm,
         fontWeight: '600',
-        color: '#FFFFFF',
     },
 });
 

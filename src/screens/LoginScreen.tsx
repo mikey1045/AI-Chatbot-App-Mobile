@@ -10,12 +10,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, FontSizes, BorderRadius } from '../constants/Colors';
+import { Spacing, FontSizes, BorderRadius } from '../constants/Colors';
 import { NavigationContext } from '../context/NavigationContext';
+import { useTheme } from '../context/ThemeContext';
 import { signInWithGoogle } from '../config/firebaseConfig';
 
 const LoginScreen: React.FC = () => {
     const { loginWithFirebaseUser } = React.useContext(NavigationContext);
+    const { theme, isDarkMode } = useTheme();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -35,34 +37,34 @@ const LoginScreen: React.FC = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
 
             {/* Background gradient effect */}
-            <View style={styles.backgroundGradient} />
+            <View style={[styles.backgroundGradient, { backgroundColor: theme.primary }]} />
 
             {/* Content */}
             <View style={styles.content}>
                 {/* Logo & Title */}
                 <View style={styles.header}>
-                    <View style={styles.logoContainer}>
-                        <Ionicons name="chatbubbles" size={60} color={Colors.primary} />
+                    <View style={[styles.logoContainer, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
+                        <Ionicons name="chatbubbles" size={60} color={theme.primary} />
                     </View>
-                    <Text style={styles.title}>VIA AI</Text>
-                    <Text style={styles.subtitle}>Trợ lý AI thông minh của bạn</Text>
+                    <Text style={[styles.title, { color: theme.textPrimary }]}>VIA AI</Text>
+                    <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Trợ lý AI thông minh của bạn</Text>
                 </View>
 
                 {/* Login Button */}
                 <View style={styles.loginContainer}>
                     {error ? (
                         <View style={styles.errorContainer}>
-                            <Ionicons name="alert-circle" size={20} color={Colors.error} />
-                            <Text style={styles.errorText}>{error}</Text>
+                            <Ionicons name="alert-circle" size={20} color={theme.error} />
+                            <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
                         </View>
                     ) : null}
 
                     <TouchableOpacity
-                        style={styles.googleButton}
+                        style={[styles.googleButton, { backgroundColor: theme.primary, shadowColor: theme.primary }]}
                         onPress={handleGoogleSignIn}
                         disabled={isLoading}
                         activeOpacity={0.8}
@@ -82,16 +84,16 @@ const LoginScreen: React.FC = () => {
                         )}
                     </TouchableOpacity>
 
-                    <Text style={styles.termsText}>
+                    <Text style={[styles.termsText, { color: theme.textSecondary }]}>
                         Bằng việc đăng nhập, bạn đồng ý với{'\n'}
-                        <Text style={styles.termsLink}>Điều khoản sử dụng</Text> và{' '}
-                        <Text style={styles.termsLink}>Chính sách bảo mật</Text>
+                        <Text style={{ color: theme.primary }}>Điều khoản sử dụng</Text> và{' '}
+                        <Text style={{ color: theme.primary }}>Chính sách bảo mật</Text>
                     </Text>
                 </View>
 
                 {/* Footer */}
                 <View style={styles.footer}>
-                    <Text style={styles.footerText}>
+                    <Text style={[styles.footerText, { color: theme.textMuted }]}>
                         Powered by Gemini AI
                     </Text>
                 </View>
@@ -103,7 +105,6 @@ const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     backgroundGradient: {
         position: 'absolute',
@@ -111,7 +112,6 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         height: '50%',
-        backgroundColor: Colors.primary,
         opacity: 0.1,
         borderBottomLeftRadius: 100,
         borderBottomRightRadius: 100,
@@ -130,7 +130,6 @@ const styles = StyleSheet.create({
         width: 120,
         height: 120,
         borderRadius: 60,
-        backgroundColor: 'rgba(99, 102, 241, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: Spacing.lg,
@@ -138,12 +137,10 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 36,
         fontWeight: 'bold',
-        color: Colors.textPrimary,
         marginBottom: Spacing.xs,
     },
     subtitle: {
         fontSize: FontSizes.base,
-        color: Colors.textSecondary,
         textAlign: 'center',
     },
     loginContainer: {
@@ -159,7 +156,6 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.lg,
     },
     errorText: {
-        color: Colors.error,
         marginLeft: Spacing.xs,
         fontSize: FontSizes.sm,
     },
@@ -167,12 +163,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.primary,
         paddingVertical: Spacing.md,
         paddingHorizontal: Spacing.xl,
         borderRadius: BorderRadius.full,
         width: '100%',
-        shadowColor: Colors.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -193,19 +187,14 @@ const styles = StyleSheet.create({
     termsText: {
         marginTop: Spacing.lg,
         fontSize: FontSizes.xs,
-        color: Colors.textSecondary,
         textAlign: 'center',
         lineHeight: 18,
-    },
-    termsLink: {
-        color: Colors.primary,
     },
     footer: {
         alignItems: 'center',
     },
     footerText: {
         fontSize: FontSizes.xs,
-        color: Colors.textMuted,
     },
 });
 

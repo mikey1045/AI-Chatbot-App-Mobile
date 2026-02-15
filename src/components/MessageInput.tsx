@@ -7,71 +7,73 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, FontSizes } from '../constants/Colors';
+import { Spacing, FontSizes, BorderRadius } from '../constants/Colors';
+import { useTheme } from '../context/ThemeContext';
 
 interface MessageInputProps {
-    onSend: (message: string, enableSearch: boolean) => void;
-    isLoading?: boolean;
+    onSend: (text: string, enableSearch: boolean) => void;
+    isLoading: boolean;
 }
 
-const MessageInput: React.FC<MessageInputProps> = ({ onSend, isLoading = false }) => {
+const MessageInput: React.FC<MessageInputProps> = ({ onSend, isLoading }) => {
+    const { theme } = useTheme();
     const [text, setText] = useState('');
-    const [isSearchEnabled, setIsSearchEnabled] = useState(false);
+    const [enableSearch, setEnableSearch] = useState(false);
 
     const handleSend = () => {
-        if (text.trim() && !isLoading) {
-            onSend(text.trim(), isSearchEnabled);
+        const trimmed = text.trim();
+        if (trimmed && !isLoading) {
+            onSend(trimmed, enableSearch);
             setText('');
         }
     };
 
-    const toggleSearch = () => {
-        setIsSearchEnabled(!isSearchEnabled);
-    };
-
     return (
-        <View style={styles.container}>
-            <View style={styles.inputContainer}>
-                <TextInput
-                    style={styles.input}
-                    placeholder={isSearchEnabled ? "Hỏi VIA AI (Có tìm kiếm web)..." : "Nhập tin nhắn..."}
-                    placeholderTextColor={Colors.textMuted}
-                    value={text}
-                    onChangeText={setText}
-                    multiline={true}
-                    maxLength={2000}
-                    editable={!isLoading}
-                    onSubmitEditing={handleSend}
-                />
-
+        <View style={[styles.container, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
+            <View style={[styles.inputRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                {/* Search Toggle */}
                 <TouchableOpacity
-                    style={[styles.iconButton, isSearchEnabled && styles.iconButtonActive]}
-                    onPress={toggleSearch}
-                    disabled={isLoading}
+                    style={[
+                        styles.searchToggle,
+                        enableSearch && { backgroundColor: theme.primary },
+                    ]}
+                    onPress={() => setEnableSearch(!enableSearch)}
                 >
                     <Ionicons
-                        name={isSearchEnabled ? "globe" : "globe-outline"}
-                        size={22}
-                        color={isSearchEnabled ? Colors.primary : Colors.textMuted}
+                        name="search"
+                        size={18}
+                        color={enableSearch ? '#fff' : theme.textMuted}
                     />
                 </TouchableOpacity>
 
+                {/* Input */}
+                <TextInput
+                    style={[styles.input, { color: theme.textPrimary }]}
+                    placeholder="Nhập tin nhắn..."
+                    placeholderTextColor={theme.textMuted}
+                    value={text}
+                    onChangeText={setText}
+                    multiline
+                    maxLength={4000}
+                    editable={!isLoading}
+                />
+
+                {/* Send Button */}
                 <TouchableOpacity
                     style={[
                         styles.sendButton,
-                        (!text.trim() || isLoading) && styles.sendButtonDisabled,
+                        { backgroundColor: text.trim() ? theme.primary : theme.surfaceHover },
                     ]}
                     onPress={handleSend}
                     disabled={!text.trim() || isLoading}
-                    activeOpacity={0.7}
                 >
                     {isLoading ? (
-                        <ActivityIndicator size="small" color={Colors.textPrimary} />
+                        <ActivityIndicator size="small" color={theme.textPrimary} />
                     ) : (
                         <Ionicons
                             name="send"
-                            size={20}
-                            color={text.trim() ? Colors.textPrimary : Colors.textMuted}
+                            size={18}
+                            color={text.trim() ? '#fff' : theme.textMuted}
                         />
                     )}
                 </TouchableOpacity>
@@ -82,51 +84,42 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, isLoading = false }
 
 const styles = StyleSheet.create({
     container: {
-        paddingHorizontal: Spacing.base,
-        paddingVertical: Spacing.md,
-        backgroundColor: Colors.background,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
         borderTopWidth: 1,
-        borderTopColor: Colors.border,
     },
-    inputContainer: {
+    inputRow: {
         flexDirection: 'row',
         alignItems: 'flex-end',
-        backgroundColor: Colors.surface,
         borderRadius: BorderRadius.xl,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xs,
         borderWidth: 1,
-        borderColor: Colors.border,
-        paddingHorizontal: Spacing.base, // Reduced padding to fit icons
-        paddingVertical: Spacing.sm,
+    },
+    searchToggle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: Spacing.xs,
+        marginBottom: 2,
     },
     input: {
         flex: 1,
         fontSize: FontSizes.base,
-        color: Colors.textPrimary,
-        maxHeight: 100,
-        paddingVertical: Spacing.sm,
+        maxHeight: 120,
+        paddingVertical: Spacing.xs,
+        paddingHorizontal: Spacing.xs,
     },
-    iconButton: {
-        width: 40,
-        height: 40,
+    sendButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
         marginLeft: Spacing.xs,
-        borderRadius: BorderRadius.full,
-    },
-    iconButtonActive: {
-        backgroundColor: Colors.surfaceHover,
-    },
-    sendButton: {
-        width: 40,
-        height: 40,
-        borderRadius: BorderRadius.full,
-        backgroundColor: Colors.primary,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginLeft: Spacing.sm,
-    },
-    sendButtonDisabled: {
-        backgroundColor: Colors.surfaceHover,
+        marginBottom: 2,
     },
 });
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback } from 'react';
 import {
     View,
     Text,
@@ -11,8 +11,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, FontSizes, BorderRadius } from '../constants/Colors';
+import { Spacing, FontSizes, BorderRadius } from '../constants/Colors';
 import { NavigationContext } from '../context/NavigationContext';
+import { useTheme } from '../context/ThemeContext';
+import { getSessions, deleteSession } from '../services/chatStorage';
 
 interface SettingItemProps {
     icon: string;
@@ -21,6 +23,7 @@ interface SettingItemProps {
     rightElement?: React.ReactNode;
     onPress?: () => void;
     danger?: boolean;
+    theme: any;
 }
 
 const SettingItem: React.FC<SettingItemProps> = ({
@@ -30,6 +33,7 @@ const SettingItem: React.FC<SettingItemProps> = ({
     rightElement,
     onPress,
     danger = false,
+    theme,
 }) => (
     <TouchableOpacity
         style={styles.settingItem}
@@ -37,18 +41,18 @@ const SettingItem: React.FC<SettingItemProps> = ({
         activeOpacity={onPress ? 0.7 : 1}
         disabled={!onPress}
     >
-        <View style={[styles.iconContainer, danger && styles.iconDanger]}>
+        <View style={[styles.iconContainer, { backgroundColor: theme.surfaceHover }, danger && { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
             <Ionicons
                 name={icon as any}
                 size={20}
-                color={danger ? Colors.error : Colors.primary}
+                color={danger ? theme.error : theme.primary}
             />
         </View>
         <View style={styles.settingContent}>
-            <Text style={[styles.settingTitle, danger && styles.textDanger]}>
+            <Text style={[styles.settingTitle, { color: danger ? theme.error : theme.textPrimary }]}>
                 {title}
             </Text>
-            {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
+            {subtitle && <Text style={[styles.settingSubtitle, { color: theme.textSecondary }]}>{subtitle}</Text>}
         </View>
         {rightElement ? (
             rightElement
@@ -56,7 +60,7 @@ const SettingItem: React.FC<SettingItemProps> = ({
             <Ionicons
                 name="chevron-forward"
                 size={20}
-                color={Colors.textMuted}
+                color={theme.textMuted}
             />
         ) : null}
     </TouchableOpacity>
@@ -64,22 +68,33 @@ const SettingItem: React.FC<SettingItemProps> = ({
 
 const SettingsScreen: React.FC = () => {
     const { goBack, logout, user } = React.useContext(NavigationContext);
-    const [isDarkMode, setIsDarkMode] = useState(true);
+    const { theme, isDarkMode, toggleTheme } = useTheme();
 
-    const handleClearHistory = () => {
+    const handleClearHistory = useCallback(() => {
         Alert.alert(
             'Xóa lịch sử',
-            'Bạn có chắc chắn muốn xóa tất cả lịch sử trò chuyện?',
+            'Bạn có chắc chắn muốn xóa tất cả lịch sử trò chuyện? Hành động này không thể hoàn tác.',
             [
                 { text: 'Hủy', style: 'cancel' },
                 {
-                    text: 'Xóa',
+                    text: 'Xóa tất cả',
                     style: 'destructive',
-                    onPress: () => console.log('Cleared'),
+                    onPress: async () => {
+                        try {
+                            const sessions = await getSessions();
+                            for (const session of sessions) {
+                                await deleteSession(session.id);
+                            }
+                            Alert.alert('Thành công', 'Đã xóa tất cả lịch sử trò chuyện.');
+                        } catch (e) {
+                            console.error('Failed to clear history:', e);
+                            Alert.alert('Lỗi', 'Không thể xóa lịch sử. Vui lòng thử lại.');
+                        }
+                    },
                 },
             ]
         );
-    };
+    }, []);
 
     const handleLogout = () => {
         Alert.alert(
@@ -93,101 +108,95 @@ const SettingsScreen: React.FC = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
 
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, { borderBottomColor: theme.border }]}>
                 <TouchableOpacity style={styles.backButton} onPress={goBack}>
-                    <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+                    <Ionicons name="arrow-back" size={24} color={theme.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Cài đặt</Text>
+                <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Cài đặt</Text>
                 <View style={styles.placeholder} />
             </View>
 
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
                 {/* Appearance Section */}
-                <Text style={styles.sectionTitle}>Giao diện</Text>
-                <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Giao diện</Text>
+                <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <SettingItem
                         icon="moon-outline"
                         title="Chế độ tối"
                         subtitle="Bật/tắt giao diện tối"
+                        theme={theme}
                         rightElement={
                             <Switch
                                 value={isDarkMode}
-                                onValueChange={setIsDarkMode}
-                                trackColor={{ false: Colors.border, true: Colors.primary }}
-                                thumbColor={Colors.textPrimary}
+                                onValueChange={toggleTheme}
+                                trackColor={{ false: theme.border, true: theme.primary }}
+                                thumbColor={isDarkMode ? '#FFFFFF' : '#FFFFFF'}
                             />
                         }
                     />
                 </View>
 
                 {/* Data Section */}
-                <Text style={styles.sectionTitle}>Dữ liệu</Text>
-                <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Dữ liệu</Text>
+                <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <SettingItem
                         icon="trash-outline"
                         title="Xóa lịch sử chat"
                         subtitle="Xóa tất cả cuộc trò chuyện"
                         onPress={handleClearHistory}
                         danger={true}
+                        theme={theme}
                     />
                 </View>
 
                 {/* Account Section */}
-                <Text style={styles.sectionTitle}>Tài khoản</Text>
-                <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Tài khoản</Text>
+                <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <SettingItem
                         icon="person-outline"
                         title={user?.name || 'Người dùng'}
                         subtitle={user?.email}
+                        theme={theme}
                     />
-                    <View style={styles.divider} />
+                    <View style={[styles.divider, { backgroundColor: theme.surfaceHover }]} />
                     <SettingItem
                         icon="log-out-outline"
                         title="Đăng xuất"
                         subtitle="Thoát khỏi tài khoản"
                         onPress={handleLogout}
                         danger={true}
+                        theme={theme}
                     />
                 </View>
 
                 {/* About Section */}
-                <Text style={styles.sectionTitle}>Thông tin</Text>
-                <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Thông tin</Text>
+                <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <SettingItem
                         icon="information-circle-outline"
                         title="Về ứng dụng"
                         subtitle="VIA AI - Phiên bản 1.0.0"
+                        theme={theme}
                     />
-                    <View style={styles.divider} />
-                    <SettingItem
-                        icon="logo-github"
-                        title="Mã nguồn"
-                        subtitle="Xem trên GitHub"
-                        rightElement={
-                            <Ionicons
-                                name="open-outline"
-                                size={18}
-                                color={Colors.textMuted}
-                            />
-                        }
-                    />
-                    <View style={styles.divider} />
+
+                    <View style={[styles.divider, { backgroundColor: theme.surfaceHover }]} />
                     <SettingItem
                         icon="diamond-outline"
                         title="Powered by"
                         subtitle="Google Gemini API"
+                        theme={theme}
                     />
                 </View>
 
                 {/* Footer */}
                 <View style={styles.footer}>
-                    <Text style={styles.footerLogo}>V</Text>
-                    <Text style={styles.footerText}>VIA AI</Text>
-                    <Text style={styles.footerSubtext}>Made with ❤️ by React Native</Text>
+                    <Text style={[styles.footerLogo, { color: theme.textMuted }]}>V</Text>
+                    <Text style={[styles.footerText, { color: theme.textMuted }]}>VIA AI</Text>
+                    <Text style={[styles.footerSubtext, { color: theme.textSecondary }]}>Made with ❤️ by React Native</Text>
                 </View>
             </ScrollView>
         </SafeAreaView>
@@ -197,7 +206,6 @@ const SettingsScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     header: {
         flexDirection: 'row',
@@ -206,7 +214,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.base,
         paddingVertical: Spacing.md,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
     },
     backButton: {
         width: 40,
@@ -217,7 +224,6 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: FontSizes.lg,
         fontWeight: '600',
-        color: Colors.textPrimary,
     },
     placeholder: {
         width: 40,
@@ -229,18 +235,15 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: FontSizes.sm,
         fontWeight: '600',
-        color: Colors.textSecondary,
         marginTop: Spacing.md,
         marginBottom: Spacing.sm,
         marginLeft: Spacing.xs,
         textTransform: 'uppercase',
     },
     section: {
-        backgroundColor: Colors.surface,
         borderRadius: BorderRadius.lg,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: Colors.border,
     },
     settingItem: {
         flexDirection: 'row',
@@ -252,13 +255,9 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: BorderRadius.md,
-        backgroundColor: Colors.surfaceHover,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: Spacing.md,
-    },
-    iconDanger: {
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
     },
     settingContent: {
         flex: 1,
@@ -266,20 +265,14 @@ const styles = StyleSheet.create({
     },
     settingTitle: {
         fontSize: FontSizes.base,
-        color: Colors.textPrimary,
         fontWeight: '500',
     },
     settingSubtitle: {
         fontSize: FontSizes.xs,
-        color: Colors.textSecondary,
         marginTop: 2,
-    },
-    textDanger: {
-        color: Colors.error,
     },
     divider: {
         height: 1,
-        backgroundColor: Colors.surfaceHover,
         marginLeft: 56,
     },
     footer: {
@@ -290,18 +283,15 @@ const styles = StyleSheet.create({
     footerLogo: {
         fontSize: 32,
         fontWeight: '900',
-        color: Colors.textMuted,
         fontStyle: 'italic',
         opacity: 0.5,
     },
     footerText: {
         fontSize: FontSizes.sm,
-        color: Colors.textMuted,
         marginTop: Spacing.xs,
     },
     footerSubtext: {
         fontSize: FontSizes.xs,
-        color: Colors.textSecondary,
         marginTop: 4,
         opacity: 0.7,
     },

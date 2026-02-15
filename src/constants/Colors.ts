@@ -1,7 +1,7 @@
 // VIA AI - Design System Colors
 // Dark Mode Theme inspired by Perplexity Pro
 
-export const Colors = {
+const DarkTheme = {
     // Background Colors
     background: '#0F0F0F',      // Nền tối sâu
     surface: '#1A1A1A',         // Nền card/bubble AI
@@ -34,6 +34,43 @@ export const Colors = {
     aiBubble: '#1A1A1A',
     aiBubbleText: '#FFFFFF',
 };
+
+const LightTheme = {
+    // Background Colors
+    background: '#F9FAFB',      // Light gray background
+    surface: '#FFFFFF',         // White surface
+    surfaceHover: '#F3F4F6',    // Light hover state
+
+    // Primary (Accent)
+    primary: '#10B981',         // Keep same brand teal
+    primaryLight: '#34D399',
+    primaryDark: '#059669',
+
+    // Text Colors
+    textPrimary: '#111827',     // Deep gray/black
+    textSecondary: '#4B5563',   // Medium gray
+    textMuted: '#9CA3AF',      // Light gray
+
+    // Border & Dividers
+    border: '#E5E7EB',
+    borderLight: '#F3F4F6',
+
+    // Status Colors
+    success: '#10B981',
+    error: '#EF4444',
+    warning: '#F59E0B',
+
+    // User message bubble
+    userBubble: '#10B981',
+    userBubbleText: '#FFFFFF',
+
+    // AI message bubble
+    aiBubble: '#E5E7EB',
+    aiBubbleText: '#111827',
+};
+
+export const Colors = DarkTheme; // Default, but we'll use Context
+export { DarkTheme, LightTheme };
 
 export const Spacing = {
     xs: 4,

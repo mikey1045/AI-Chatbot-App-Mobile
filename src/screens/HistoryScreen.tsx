@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     View,
     Text,
@@ -6,121 +6,157 @@ import {
     FlatList,
     TouchableOpacity,
     StatusBar,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, FontSizes, BorderRadius } from '../constants/Colors';
+import { Spacing, FontSizes, BorderRadius } from '../constants/Colors';
 import { NavigationContext } from '../context/NavigationContext';
-
-interface ChatHistory {
-    id: string;
-    title: string;
-    lastMessage: string;
-    timestamp: Date;
-}
-
-// Demo history data
-const DEMO_HISTORY: ChatHistory[] = [
-    {
-        id: '1',
-        title: 'Giải thích React Native',
-        lastMessage: 'React Native là một framework...',
-        timestamp: new Date(),
-    },
-    {
-        id: '2',
-        title: 'Hỏi về JavaScript',
-        lastMessage: 'JavaScript là ngôn ngữ lập trình...',
-        timestamp: new Date(Date.now() - 86400000),
-    },
-    {
-        id: '3',
-        title: 'Cách sử dụng API',
-        lastMessage: 'Để gọi API, bạn có thể sử dụng fetch...',
-        timestamp: new Date(Date.now() - 172800000),
-    },
-];
+import { useTheme } from '../context/ThemeContext';
+import { ChatSession, getSessions, deleteSession } from '../services/chatStorage';
 
 const HistoryScreen: React.FC = () => {
     const { goBack, navigate } = React.useContext(NavigationContext);
+    const { theme, isDarkMode } = useTheme();
 
-    const formatDate = (date: Date) => {
+    const [sessions, setSessions] = useState<ChatSession[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Load sessions from storage
+    const loadSessions = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            const loadedSessions = await getSessions();
+            setSessions(loadedSessions);
+        } catch (e) {
+            console.error('Failed to load sessions:', e);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadSessions();
+    }, [loadSessions]);
+
+    const formatDate = (timestamp: number) => {
+        const date = new Date(timestamp);
         const now = new Date();
         const diff = now.getTime() - date.getTime();
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
         if (days === 0) return 'Hôm nay';
         if (days === 1) return 'Hôm qua';
+        if (days < 7) return `${days} ngày trước`;
         return date.toLocaleDateString('vi-VN');
     };
 
-    const handleDelete = (id: string) => {
-        // TODO: Implement delete logic
-        console.log('Delete chat:', id);
-    };
+    const handleDelete = useCallback((session: ChatSession) => {
+        Alert.alert(
+            'Xóa cuộc trò chuyện',
+            `Bạn có chắc chắn muốn xóa "${session.title}"?`,
+            [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Xóa',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await deleteSession(session.id);
+                            setSessions(prev => prev.filter(s => s.id !== session.id));
+                        } catch (e) {
+                            console.error('Failed to delete session:', e);
+                            Alert.alert('Lỗi', 'Không thể xóa cuộc trò chuyện.');
+                        }
+                    },
+                },
+            ]
+        );
+    }, []);
 
-    const handleSelectChat = (id: string) => {
-        // TODO: Load chat and navigate
+    const handleSelectChat = useCallback((sessionId: string) => {
+        // Navigate to chat — the ChatScreen will load this session via SideMenu logic
         navigate('chat');
-    };
+    }, [navigate]);
 
-    const renderItem = ({ item }: { item: ChatHistory }) => (
+    const renderItem = ({ item }: { item: ChatSession }) => (
         <TouchableOpacity
-            style={styles.historyItem}
+            style={[styles.historyItem, { backgroundColor: theme.surface, borderColor: theme.border }]}
             onPress={() => handleSelectChat(item.id)}
             activeOpacity={0.7}
         >
-            <View style={styles.iconContainer}>
-                <Ionicons name="chatbubble-outline" size={20} color={Colors.primary} />
+            <View style={[styles.iconContainer, { backgroundColor: theme.surfaceHover }]}>
+                <Ionicons name="chatbubble-outline" size={20} color={theme.primary} />
             </View>
-
-            <View style={styles.contentContainer}>
-                <Text style={styles.title} numberOfLines={1}>
-                    {item.title}
+            <View style={styles.content}>
+                <Text style={[styles.title, { color: theme.textPrimary }]} numberOfLines={1}>
+                    {item.title || 'Cuộc trò chuyện mới'}
                 </Text>
-                <Text style={styles.lastMessage} numberOfLines={1}>
-                    {item.lastMessage}
+                <Text style={[styles.preview, { color: theme.textSecondary }]} numberOfLines={2}>
+                    {item.preview || 'Không có tin nhắn'}
+                </Text>
+                <Text style={[styles.date, { color: theme.textMuted }]}>
+                    {formatDate(item.lastModified)}
                 </Text>
             </View>
-
-            <View style={styles.rightContainer}>
-                <Text style={styles.timestamp}>{formatDate(item.timestamp)}</Text>
-                <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDelete(item.id)}
-                >
-                    <Ionicons name="trash-outline" size={18} color={Colors.textMuted} />
-                </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+                style={styles.deleteBtn}
+                onPress={() => handleDelete(item)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+                <Ionicons name="trash-outline" size={18} color={theme.error || '#FF4444'} />
+            </TouchableOpacity>
         </TouchableOpacity>
     );
 
+    const renderEmpty = () => (
+        <View style={styles.emptyContainer}>
+            <Ionicons name="chatbubbles-outline" size={64} color={theme.textMuted} />
+            <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>
+                Chưa có cuộc trò chuyện nào
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+                Bắt đầu trò chuyện với VIA AI ngay!
+            </Text>
+        </View>
+    );
+
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
 
             {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.backButton} onPress={goBack}>
-                    <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+            <View style={[styles.header, { borderBottomColor: theme.border }]}>
+                <TouchableOpacity onPress={goBack} style={styles.backButton}>
+                    <Ionicons name="arrow-back" size={24} color={theme.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Lịch sử trò chuyện</Text>
-                <View style={styles.placeholder} />
+                <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Lịch sử chat</Text>
+                <View style={styles.headerRight}>
+                    <Text style={[styles.sessionCount, { color: theme.textMuted }]}>
+                        {sessions.length} cuộc trò chuyện
+                    </Text>
+                </View>
             </View>
 
-            <FlatList
-                data={DEMO_HISTORY}
-                keyExtractor={(item) => item.id}
-                renderItem={renderItem}
-                contentContainerStyle={styles.list}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Ionicons name="chatbubbles-outline" size={48} color={Colors.textMuted} />
-                        <Text style={styles.emptyText}>Chưa có lịch sử trò chuyện</Text>
-                    </View>
-                }
-            />
+            {/* Content */}
+            {isLoading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={theme.primary} />
+                </View>
+            ) : (
+                <FlatList
+                    data={sessions}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderItem}
+                    ListEmptyComponent={renderEmpty}
+                    contentContainerStyle={[
+                        styles.listContent,
+                        sessions.length === 0 && styles.emptyList,
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                />
+            )}
         </SafeAreaView>
     );
 };
@@ -128,88 +164,94 @@ const HistoryScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
         paddingHorizontal: Spacing.base,
         paddingVertical: Spacing.md,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
     },
     backButton: {
         width: 40,
         height: 40,
         justifyContent: 'center',
         alignItems: 'center',
+        borderRadius: BorderRadius.md,
     },
     headerTitle: {
+        flex: 1,
         fontSize: FontSizes.lg,
-        fontWeight: '600',
-        color: Colors.textPrimary,
+        fontWeight: '700',
+        marginLeft: Spacing.sm,
     },
-    placeholder: {
-        width: 40,
+    headerRight: {
+        alignItems: 'flex-end',
     },
-    list: {
+    sessionCount: {
+        fontSize: FontSizes.xs,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    listContent: {
         padding: Spacing.base,
+    },
+    emptyList: {
+        flexGrow: 1,
+        justifyContent: 'center',
     },
     historyItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.surface,
+        padding: Spacing.md,
         borderRadius: BorderRadius.lg,
-        padding: Spacing.base,
-        marginBottom: Spacing.md,
+        marginBottom: Spacing.sm,
         borderWidth: 1,
-        borderColor: Colors.border,
     },
     iconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: BorderRadius.md,
-        backgroundColor: Colors.surfaceHover,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: Spacing.md,
     },
-    contentContainer: {
+    content: {
         flex: 1,
     },
     title: {
         fontSize: FontSizes.base,
         fontWeight: '600',
-        color: Colors.textPrimary,
         marginBottom: 4,
     },
-    lastMessage: {
+    preview: {
         fontSize: FontSizes.sm,
-        color: Colors.textSecondary,
+        lineHeight: 18,
+        marginBottom: 4,
     },
-    rightContainer: {
-        alignItems: 'flex-end',
-        marginLeft: Spacing.md,
-    },
-    timestamp: {
+    date: {
         fontSize: FontSizes.xs,
-        color: Colors.textMuted,
-        marginBottom: Spacing.sm,
     },
-    deleteButton: {
-        padding: Spacing.xs,
+    deleteBtn: {
+        padding: Spacing.sm,
+        marginLeft: Spacing.sm,
     },
     emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
         alignItems: 'center',
-        paddingTop: 100,
+        paddingHorizontal: Spacing.xl,
     },
-    emptyText: {
-        fontSize: FontSizes.base,
-        color: Colors.textMuted,
+    emptyTitle: {
+        fontSize: FontSizes.lg,
+        fontWeight: '600',
         marginTop: Spacing.base,
+    },
+    emptySubtitle: {
+        fontSize: FontSizes.base,
+        marginTop: Spacing.sm,
+        textAlign: 'center',
     },
 });
 

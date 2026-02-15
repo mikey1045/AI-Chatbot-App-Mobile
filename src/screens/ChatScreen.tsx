@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContext } from '../context/NavigationContext';
+import { useTheme } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import Header from '../components/Header';
@@ -21,7 +22,7 @@ import TypingIndicator from '../components/TypingIndicator';
 import ModelSelector from '../components/ModelSelector';
 import SideMenu from '../components/SideMenu';
 import EditMessageModal from '../components/EditMessageModal';
-import { Colors, Spacing, FontSizes } from '../constants/Colors';
+import { Spacing, FontSizes } from '../constants/Colors';
 import { streamMessageToGemini, GEMINI_MODELS } from '../services/geminiService';
 import {
     ChatSession,
@@ -40,6 +41,7 @@ const MODEL_STORAGE_KEY = 'selected_gemini_model';
 
 const ChatScreen: React.FC = () => {
     const { navigate, user } = React.useContext(NavigationContext);
+    const { theme, isDarkMode } = useTheme();
 
     // State
     const [messages, setMessages] = useState<Message[]>(DEMO_MESSAGES);
@@ -64,21 +66,11 @@ const ChatScreen: React.FC = () => {
     useEffect(() => {
         const initialize = async () => {
             try {
-                // 0. Try to restore from cloud if local is empty
                 await restoreFromCloudIfNeeded();
-
-                // 1. Migrate legacy data if any
                 await migrateLegacyData();
-
-                // 2. Load sessions (for sidebar history)
                 const loadedSessions = await getSessions();
                 setSessions(loadedSessions);
-
-                // 3. Always start with a new chat (ChatGPT style)
-                // History is available in sidebar
                 await handleNewChat(false);
-
-                // 4. Load selected model
                 const savedModel = await AsyncStorage.getItem(MODEL_STORAGE_KEY);
                 if (savedModel) {
                     setSelectedModel(savedModel);
@@ -97,15 +89,10 @@ const ChatScreen: React.FC = () => {
     useEffect(() => {
         const savecurrentSession = async () => {
             if (!isLoadedRef.current || !currentSessionId) return;
-
-            // Allow empty array to save (clearing history) - BUT only if session already exists
-            // Or if we want ChatGPT style: don't save if empty
             if (messages.length === 0) return;
 
             try {
                 await saveSession(currentSessionId, messages);
-
-                // Refresh session list to update previews/titles
                 const updatedSessions = await getSessions();
                 setSessions(updatedSessions);
             } catch (e) {
@@ -113,7 +100,7 @@ const ChatScreen: React.FC = () => {
             }
         };
 
-        const timeoutId = setTimeout(savecurrentSession, 500); // Debounce save
+        const timeoutId = setTimeout(savecurrentSession, 500);
         return () => clearTimeout(timeoutId);
     }, [messages, currentSessionId]);
 
@@ -129,10 +116,7 @@ const ChatScreen: React.FC = () => {
     const handleSend = async (text: string, enableSearch: boolean) => {
         if (!currentSessionId) return;
 
-        // Capture current history
         const currentHistory = [...messages];
-
-        // Add user message
         const userMessage: Message = {
             id: Date.now().toString(),
             text,
@@ -141,11 +125,9 @@ const ChatScreen: React.FC = () => {
         };
         setMessages((prev) => [...prev, userMessage]);
 
-        // Show typing indicator
         setIsLoading(true);
         setIsTyping(true);
 
-        // Create AI message ID
         const aiMessageId = (Date.now() + 1).toString();
         aiMessageIdRef.current = aiMessageId;
         let hasAddedAiMessage = false;
@@ -204,7 +186,7 @@ const ChatScreen: React.FC = () => {
         }
 
         setIsSideMenuVisible(false);
-        setMessages([]); // Clear current UI immediately
+        setMessages([]);
         setIsLoading(true);
 
         try {
@@ -220,12 +202,9 @@ const ChatScreen: React.FC = () => {
 
     const handleNewChat = async (shouldCloseMenu = true) => {
         if (shouldCloseMenu) setIsSideMenuVisible(false);
-
-        // ChatGPT style: Just reset state, don't create in storage until first message
         const newId = Date.now().toString();
         setCurrentSessionId(newId);
         setMessages([]);
-        // Don't refresh sessions yet as we haven't saved anything
     };
 
     const handleDeleteSession = async (sessionId: string) => {
@@ -234,7 +213,6 @@ const ChatScreen: React.FC = () => {
             const updatedSessions = await getSessions();
             setSessions(updatedSessions);
 
-            // If we deleted the active session, switch to another or create new
             if (sessionId === currentSessionId) {
                 if (updatedSessions.length > 0) {
                     handleSessionSelect(updatedSessions[0].id);
@@ -247,7 +225,6 @@ const ChatScreen: React.FC = () => {
         }
     };
 
-    // Reload: resend the message from that point
     const handleReload = async (messageId: string) => {
         if (isLoading) return;
 
@@ -257,16 +234,12 @@ const ChatScreen: React.FC = () => {
         const targetMessage = messages[messageIndex];
 
         if (targetMessage.isUser) {
-            // User message: truncate from this message onward, resend
             const previousMessages = messages.slice(0, messageIndex);
             setMessages(previousMessages);
-
-            // Small delay to let state update
             setTimeout(() => {
                 handleSend(targetMessage.text, false);
             }, 100);
         } else {
-            // AI message: find the user message before it and resend
             let userMsgIndex = messageIndex - 1;
             while (userMsgIndex >= 0 && !messages[userMsgIndex].isUser) {
                 userMsgIndex--;
@@ -275,7 +248,6 @@ const ChatScreen: React.FC = () => {
                 const userMsg = messages[userMsgIndex];
                 const previousMessages = messages.slice(0, userMsgIndex);
                 setMessages(previousMessages);
-
                 setTimeout(() => {
                     handleSend(userMsg.text, false);
                 }, 100);
@@ -283,7 +255,6 @@ const ChatScreen: React.FC = () => {
         }
     };
 
-    // Edit: open modal with the message
     const handleEditPress = (messageId: string) => {
         const msg = messages.find(m => m.id === messageId);
         if (msg) {
@@ -292,20 +263,17 @@ const ChatScreen: React.FC = () => {
         }
     };
 
-    // Submit edited message
     const handleEditSubmit = (editedText: string) => {
         if (!editingMessage) return;
 
         const messageIndex = messages.findIndex(m => m.id === editingMessage.id);
         if (messageIndex === -1) return;
 
-        // Truncate from this message onward
         const previousMessages = messages.slice(0, messageIndex);
         setMessages(previousMessages);
         setIsEditModalVisible(false);
         setEditingMessage(null);
 
-        // Send the edited text
         setTimeout(() => {
             handleSend(editedText, false);
         }, 100);
@@ -331,17 +299,17 @@ const ChatScreen: React.FC = () => {
                 style={styles.emptyLogoImage}
                 resizeMode="contain"
             />
-            <Text style={styles.emptyTitle}>VIA AI</Text>
-            <Text style={styles.emptySubtitle}>Bắt đầu cuộc trò chuyện mới</Text>
+            <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>VIA AI</Text>
+            <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>Bắt đầu cuộc trò chuyện mới</Text>
             <View style={{ marginTop: 20 }}>
-                <Text style={{ color: Colors.textMuted, fontSize: 12 }}>Model hiện tại: {GEMINI_MODELS.find(m => m.id === selectedModel)?.name}</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 12 }}>Model hiện tại: {GEMINI_MODELS.find(m => m.id === selectedModel)?.name}</Text>
             </View>
         </View>
     );
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-            <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
+            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
 
             <SideMenu
                 isVisible={isSideMenuVisible}
@@ -409,7 +377,6 @@ const ChatScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     content: {
         flex: 1,
@@ -433,12 +400,10 @@ const styles = StyleSheet.create({
     emptyTitle: {
         fontSize: FontSizes.xxl,
         fontWeight: 'bold',
-        color: Colors.textPrimary,
         marginTop: Spacing.base,
     },
     emptySubtitle: {
         fontSize: FontSizes.base,
-        color: Colors.textSecondary,
         marginTop: Spacing.sm,
     },
 });

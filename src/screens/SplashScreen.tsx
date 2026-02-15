@@ -6,18 +6,19 @@ import {
     Animated,
     StatusBar,
 } from 'react-native';
-import { Colors, FontSizes } from '../constants/Colors';
+import { FontSizes } from '../constants/Colors';
+import { useTheme } from '../context/ThemeContext';
 
 interface SplashScreenProps {
     onFinish?: () => void;
 }
 
 const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
+    const { theme, isDarkMode } = useTheme();
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
     useEffect(() => {
-        // Fade in animation
         Animated.parallel([
             Animated.timing(fadeAnim, {
                 toValue: 1,
@@ -32,7 +33,6 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
             }),
         ]).start();
 
-        // Navigate after animation
         const timer = setTimeout(() => {
             onFinish?.();
         }, 2500);
@@ -41,8 +41,8 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
     }, [fadeAnim, scaleAnim, onFinish]);
 
     return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
+            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
 
             <Animated.View
                 style={[
@@ -53,20 +53,18 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
                     },
                 ]}
             >
-                {/* Logo V - Simplified SVG-like representation */}
                 <View style={styles.logoWrapper}>
-                    <Text style={styles.logoText}>V</Text>
+                    <Text style={[styles.logoText, { color: theme.textPrimary }]}>V</Text>
                 </View>
 
-                <Text style={styles.appName}>VIA AI</Text>
-                <Text style={styles.tagline}>Powered by Gemini</Text>
+                <Text style={[styles.appName, { color: theme.textPrimary }]}>VIA AI</Text>
+                <Text style={[styles.tagline, { color: theme.textSecondary }]}>Powered by Gemini</Text>
             </Animated.View>
 
-            {/* Loading indicator */}
             <Animated.View style={[styles.loadingContainer, { opacity: fadeAnim }]}>
-                <View style={styles.loadingDot} />
-                <View style={[styles.loadingDot, styles.loadingDotMiddle]} />
-                <View style={styles.loadingDot} />
+                <View style={[styles.loadingDot, { backgroundColor: theme.primary }]} />
+                <View style={[styles.loadingDot, styles.loadingDotMiddle, { backgroundColor: theme.primary }]} />
+                <View style={[styles.loadingDot, { backgroundColor: theme.primary }]} />
             </Animated.View>
         </View>
     );
@@ -75,7 +73,6 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -91,19 +88,16 @@ const styles = StyleSheet.create({
     logoText: {
         fontSize: 80,
         fontWeight: '900',
-        color: Colors.textPrimary,
         fontStyle: 'italic',
     },
     appName: {
         fontSize: FontSizes.xxxl,
         fontWeight: 'bold',
-        color: Colors.textPrimary,
         marginTop: 16,
         letterSpacing: 2,
     },
     tagline: {
         fontSize: FontSizes.sm,
-        color: Colors.textSecondary,
         marginTop: 8,
     },
     loadingContainer: {
@@ -115,7 +109,6 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: Colors.primary,
         marginHorizontal: 4,
     },
     loadingDotMiddle: {

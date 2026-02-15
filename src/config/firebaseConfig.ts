@@ -9,7 +9,43 @@ import {
     User
 } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import { Platform } from 'react-native';
+
+// ============================================================
+// Lazy-load GoogleSignin để tương thích với Expo Go.
+// Expo Go không có native module RNGoogleSignin, nên nếu import
+// trực tiếp ở top-level sẽ crash ngay lập tức.
+// ============================================================
+let GoogleSigninModule: any = null;
+let googleSigninStatusCodes: any = null;
+let isGoogleSigninAvailable = false;
+
+function getGoogleSignin() {
+    if (GoogleSigninModule !== null) return GoogleSigninModule;
+    if (Platform.OS === 'web') return null;
+    try {
+        const mod = require('@react-native-google-signin/google-signin');
+        GoogleSigninModule = mod.GoogleSignin;
+        googleSigninStatusCodes = mod.statusCodes;
+        isGoogleSigninAvailable = true;
+
+        // Configure ngay sau khi load thành công
+        GoogleSigninModule.configure({
+            webClientId: WEB_CLIENT_ID,
+            offlineAccess: true,
+        });
+
+        return GoogleSigninModule;
+    } catch (e) {
+        console.warn(
+            '[GoogleSignin] Native module không khả dụng (Expo Go). ' +
+            'Google Sign-In trên native sẽ không hoạt động. ' +
+            'Hãy dùng development build để sử dụng tính năng này.'
+        );
+        isGoogleSigninAvailable = false;
+        return null;
+    }
+}
 
 // Firebase configuration
 const firebaseConfig = {
@@ -31,17 +67,9 @@ const database = getDatabase(app);
 // Web Client ID từ google-services.json
 const WEB_CLIENT_ID = '574556188055-ls72t2ta63vilqbmmdq0f4ap80lhdgis.apps.googleusercontent.com';
 
-// Configure Google Sign-In
-GoogleSignin.configure({
-    webClientId: WEB_CLIENT_ID,
-    offlineAccess: true,
-});
-
 /**
  * Đăng nhập bằng Google
  */
-import { Platform } from 'react-native';
-
 export const signInWithGoogle = async (): Promise<User> => {
     try {
         if (Platform.OS === 'web') {
@@ -51,11 +79,19 @@ export const signInWithGoogle = async (): Promise<User> => {
             );
             return result.user;
         } else {
+            const gSignin = getGoogleSignin();
+            if (!gSignin) {
+                throw new Error(
+                    'Google Sign-In không khả dụng trên Expo Go. ' +
+                    'Vui lòng sử dụng development build (npx expo run:android).'
+                );
+            }
+
             // Check if device supports Google Play Services
-            await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+            await gSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
             // Sign in with Google
-            const signInResult = await GoogleSignin.signIn();
+            const signInResult = await gSignin.signIn();
 
             // Get ID token
             const idToken = signInResult.data?.idToken;
@@ -75,12 +111,12 @@ export const signInWithGoogle = async (): Promise<User> => {
     } catch (error: any) {
         console.error('Google Sign-In error:', error);
 
-        if (Platform.OS !== 'web') {
-            if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        if (Platform.OS !== 'web' && googleSigninStatusCodes) {
+            if (error.code === googleSigninStatusCodes.SIGN_IN_CANCELLED) {
                 throw new Error('Đăng nhập đã bị hủy');
-            } else if (error.code === statusCodes.IN_PROGRESS) {
+            } else if (error.code === googleSigninStatusCodes.IN_PROGRESS) {
                 throw new Error('Đang đăng nhập...');
-            } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+            } else if (error.code === googleSigninStatusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
                 throw new Error('Google Play Services không khả dụng');
             }
         }
@@ -95,7 +131,10 @@ export const signInWithGoogle = async (): Promise<User> => {
 export const signOutUser = async (): Promise<void> => {
     try {
         if (Platform.OS !== 'web') {
-            await GoogleSignin.signOut();
+            const gSignin = getGoogleSignin();
+            if (gSignin) {
+                await gSignin.signOut();
+            }
         }
         await signOut(auth);
         console.log('Signed out successfully');
@@ -128,8 +167,14 @@ export const tryAutoSignIn = async (): Promise<User | null> => {
     }
 
     try {
+        const gSignin = getGoogleSignin();
+        if (!gSignin) {
+            // Expo Go — không có Google Sign-In native
+            return null;
+        }
+
         // Kiểm tra xem đã có user đăng nhập trong Google không
-        const currentGoogleUser = await GoogleSignin.getCurrentUser();
+        const currentGoogleUser = await gSignin.getCurrentUser();
 
         if (currentGoogleUser && currentGoogleUser.idToken) {
             // Đăng nhập lại vào Firebase

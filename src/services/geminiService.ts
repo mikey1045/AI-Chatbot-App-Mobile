@@ -1,4 +1,9 @@
-const GEMINI_API_KEY = 'AIzaSyBudf3Y9s384hU2Kbg8zaJ2ooG8Hn0FGa0';
+// Load API key from environment variable (Expo public env var)
+const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
+
+if (!GEMINI_API_KEY) {
+    console.warn('[GeminiService] WARNING: EXPO_PUBLIC_GEMINI_API_KEY is not set in .env file');
+}
 
 export const GEMINI_MODELS = [
     { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', isNew: false },
@@ -11,8 +16,7 @@ export const GEMINI_MODELS = [
 const getApiUrl = (modelId: string) =>
     `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${GEMINI_API_KEY}`;
 
-// System prompt for the AI
-// System prompt for the AI
+// System prompt for the AI — now allows markdown since we render it properly
 const getSystemPrompt = (userName?: string) => `Bạn là VIA AI - một trợ lý AI toàn năng, thông minh và thân thiện. 
 ${userName ? `Bạn đang trò chuyện với người dùng tên là "${userName}". Hãy xưng hô thân mật và sử dụng tên "${userName}" khi phù hợp để tạo cảm giác gần gũi.` : ''}
 
@@ -28,36 +32,7 @@ Bạn có kiến thức sâu rộng về mọi lĩnh vực bao gồm:
 - Và nhiều lĩnh vực khác
 
 Hãy trả lời một cách chính xác, hữu ích và dễ hiểu. Sử dụng tiếng Việt khi người dùng hỏi bằng tiếng Việt.
-
-QUAN TRỌNG: KHÔNG sử dụng bất kỳ ký tự markdown nào trong câu trả lời như *, **, #, \`, -, v.v. Chỉ trả lời bằng văn bản thuần túy, tự nhiên, dễ đọc.`;
-
-// Function to remove markdown formatting from text
-const stripMarkdown = (text: string): string => {
-    return text
-        // Remove bold/italic markers
-        .replace(/\*\*\*(.*?)\*\*\*/g, '$1')
-        .replace(/\*\*(.*?)\*\*/g, '$1')
-        .replace(/\*(.*?)\*/g, '$1')
-        .replace(/_{3}(.*?)_{3}/g, '$1')
-        .replace(/__(.*?)__/g, '$1')
-        .replace(/_(.*?)_/g, '$1')
-        // Remove headers
-        .replace(/^#{1,6}\s+/gm, '')
-        // Remove code blocks
-        .replace(/```[\s\S]*?```/g, (match) => match.replace(/```\w*\n?/g, '').trim())
-        .replace(/`([^`]+)`/g, '$1')
-        // Remove bullet points at start of lines
-        .replace(/^[\s]*[-*+]\s+/gm, '• ')
-        // Remove numbered lists formatting but keep numbers
-        .replace(/^[\s]*\d+\.\s+/gm, (match) => match.trim() + ' ')
-        // Remove blockquotes
-        .replace(/^>\s+/gm, '')
-        // Remove horizontal rules
-        .replace(/^[-*_]{3,}$/gm, '')
-        // Clean up extra whitespace
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
-};
+Bạn có thể sử dụng Markdown để định dạng câu trả lời (in đậm, in nghiêng, danh sách, code blocks, bảng...) để câu trả lời dễ đọc hơn.`;
 
 // Interface for UI messages (simplified from ChatBubble)
 interface UIMessage {
@@ -156,15 +131,14 @@ export const sendMessageToGemini = async (
 
         const data = await response.json();
 
-        // Extract the response text and clean markdown
+        // Extract the response text — keep markdown formatting
         let rawResponse = data.candidates?.[0]?.content?.parts?.[0]?.text ||
             'Xin lỗi, tôi không thể xử lý yêu cầu này. Vui lòng thử lại.';
 
         // Handle Grounding Metadata (Sources)
         const groundingMetadata = data.candidates?.[0]?.groundingMetadata;
         if (groundingMetadata && groundingMetadata.groundingChunks) {
-            const tempDiv = '___________________________\n';
-            let sourcesText = `\n\n${tempDiv}**Nguồn tham khảo:**\n`;
+            let sourcesText = `\n\n---\n**Nguồn tham khảo:**\n`;
 
             groundingMetadata.groundingChunks.forEach((chunk: any, index: number) => {
                 if (chunk.web?.title && chunk.web?.uri) {
@@ -178,7 +152,7 @@ export const sendMessageToGemini = async (
             }
         }
 
-        return stripMarkdown(rawResponse);
+        return rawResponse;
     } catch (error) {
         console.error('Error sending message to Gemini:', error);
         throw new Error('Không thể kết nối đến AI. Vui lòng kiểm tra kết nối mạng và thử lại.');
@@ -196,10 +170,6 @@ export const streamMessageToGemini = async (
 ): Promise<string> => {
     try {
         const conversationHistory = formatHistoryForGemini(history);
-
-        // DEBUG: Log history to see if context is being passed
-        console.log('[Gemini] History length:', history.length);
-        console.log('[Gemini] History:', JSON.stringify(history.map(m => ({ role: m.isUser ? 'user' : 'model', text: m.text.substring(0, 50) }))));
 
         // Add the current user message
         conversationHistory.push({
@@ -267,7 +237,7 @@ export const streamMessageToGemini = async (
 
         const data = await response.json();
 
-        // Extract the response text and clean markdown
+        // Extract the response text — keep markdown formatting
         let rawResponse = data.candidates?.[0]?.content?.parts?.[0]?.text ||
             'Xin lỗi, tôi không thể xử lý yêu cầu này. Vui lòng thử lại.';
 
@@ -275,8 +245,7 @@ export const streamMessageToGemini = async (
         const groundingMetadata = data.candidates?.[0]?.groundingMetadata;
         let sourcesText = '';
         if (groundingMetadata && groundingMetadata.groundingChunks) {
-            const tempDiv = '___________________________\n';
-            sourcesText = `\n\n${tempDiv}**Nguồn tham khảo:**\n`;
+            sourcesText = `\n\n---\n**Nguồn tham khảo:**\n`;
 
             groundingMetadata.groundingChunks.forEach((chunk: any, index: number) => {
                 if (chunk.web?.title && chunk.web?.uri) {
@@ -290,11 +259,9 @@ export const streamMessageToGemini = async (
             }
         }
 
-        const aiResponse = stripMarkdown(rawResponse) + sourcesText;
+        const aiResponse = rawResponse + sourcesText;
 
         // Simulate typing effect - display word by word
-        // Note: We type out the main response, then append sources at the end instantly? 
-        // Or type it all. Let's type it all but maybe faster or just normal.
         const words = aiResponse.split(' ');
         let displayedText = '';
 

@@ -8,8 +8,9 @@ import LoginScreen from './src/screens/LoginScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
-import { Colors, FontSizes } from './src/constants/Colors';
+import { FontSizes } from './src/constants/Colors';
 import { NavigationContext, ScreenName, User } from './src/context/NavigationContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import {
   subscribeToAuthChanges,
   signOutUser,
@@ -18,20 +19,25 @@ import {
 } from './src/config/firebaseConfig';
 import { setCurrentUserId } from './src/services/chatStorage';
 
-// Loading Screen
-const LoadingScreen = () => (
-  <View style={styles.loadingContainer}>
-    <Image
-      source={require('./assets/logo.png')}
-      style={styles.loadingLogoImage}
-      resizeMode="contain"
-    />
-    <Text style={styles.loadingTitle}>VIA AI</Text>
-    <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
-  </View>
-);
+// Loading Screen - uses theme
+const LoadingScreen = () => {
+  const { theme } = useTheme();
+  return (
+    <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+      <Image
+        source={require('./assets/logo.png')}
+        style={styles.loadingLogoImage}
+        resizeMode="contain"
+      />
+      <Text style={[styles.loadingTitle, { color: theme.textPrimary }]}>VIA AI</Text>
+      <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 20 }} />
+    </View>
+  );
+};
 
-export default function App() {
+// Inner app that uses theme context
+const AppContent = () => {
+  const { theme, isDarkMode } = useTheme();
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('loading');
   const [previousScreen, setPreviousScreen] = useState<ScreenName>('chat');
   const [user, setUser] = useState<User | null>(null);
@@ -43,7 +49,6 @@ export default function App() {
       try {
         const autoUser = await tryAutoSignIn();
         if (autoUser) {
-          // Set user ID cho chat storage
           setCurrentUserId(autoUser.uid);
           setUser({
             id: autoUser.uid,
@@ -52,13 +57,12 @@ export default function App() {
           });
           setCurrentScreen('chat');
           setIsLoading(false);
-          return; // Đã đăng nhập thành công, không cần subscribe
+          return;
         }
       } catch (error) {
         console.log('Auto sign-in skipped');
       }
 
-      // Nếu không auto login được, subscribe để chờ đăng nhập
       setIsLoading(false);
       setCurrentScreen('login');
     };
@@ -70,7 +74,6 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = subscribeToAuthChanges((firebaseUser) => {
       if (firebaseUser) {
-        // User is signed in - set user ID cho chat storage
         setCurrentUserId(firebaseUser.uid);
         setUser({
           id: firebaseUser.uid,
@@ -79,7 +82,6 @@ export default function App() {
         });
         setCurrentScreen('chat');
       } else if (!isLoading) {
-        // User is signed out - clear user ID
         setCurrentUserId(null);
         setUser(null);
         setCurrentScreen('login');
@@ -89,7 +91,6 @@ export default function App() {
     return () => unsubscribe();
   }, [isLoading]);
 
-  // Navigation functions
   const navigate = (screen: ScreenName) => {
     setPreviousScreen(currentScreen);
     setCurrentScreen(screen);
@@ -99,9 +100,7 @@ export default function App() {
     setCurrentScreen(previousScreen);
   };
 
-  // Auth functions
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Not used with Google Sign-In
     return false;
   };
 
@@ -124,7 +123,6 @@ export default function App() {
     }
   };
 
-  // Render current screen
   const renderScreen = () => {
     if (isLoading || currentScreen === 'loading') {
       return <LoadingScreen />;
@@ -145,12 +143,20 @@ export default function App() {
   };
 
   return (
+    <NavigationContext.Provider value={{ navigate, goBack, user, login, loginWithFirebaseUser, logout }}>
+      <StatusBar style={isDarkMode ? 'light' : 'dark'} backgroundColor={theme.background} />
+      {renderScreen()}
+    </NavigationContext.Provider>
+  );
+};
+
+export default function App() {
+  return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <NavigationContext.Provider value={{ navigate, goBack, user, login, loginWithFirebaseUser, logout }}>
-          <StatusBar style="light" backgroundColor={Colors.background} />
-          {renderScreen()}
-        </NavigationContext.Provider>
+        <ThemeProvider>
+          <AppContent />
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
@@ -159,7 +165,6 @@ export default function App() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    backgroundColor: Colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -171,7 +176,6 @@ const styles = StyleSheet.create({
   loadingTitle: {
     fontSize: FontSizes.xxl,
     fontWeight: 'bold',
-    color: Colors.textPrimary,
     marginTop: 16,
   },
 });

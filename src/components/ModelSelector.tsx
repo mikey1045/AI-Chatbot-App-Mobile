@@ -1,6 +1,7 @@
 import React from 'react';
-import { ScrollView, TouchableOpacity, Text, StyleSheet, View } from 'react-native';
-import { Colors, Spacing, FontSizes, BorderRadius } from '../constants/Colors';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Spacing, FontSizes, BorderRadius } from '../constants/Colors';
+import { useTheme } from '../context/ThemeContext';
 import { GEMINI_MODELS } from '../services/geminiService';
 
 interface ModelSelectorProps {
@@ -9,38 +10,44 @@ interface ModelSelectorProps {
 }
 
 const ModelSelector: React.FC<ModelSelectorProps> = ({ selectedModelId, onSelectModel }) => {
+    const { theme } = useTheme();
+
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.background, borderBottomColor: theme.border }]}>
             <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.contentContainer}
+                contentContainerStyle={styles.scrollContent}
             >
-                {GEMINI_MODELS.map((model) => (
-                    <TouchableOpacity
-                        key={model.id}
-                        style={[
-                            styles.modelButton,
-                            selectedModelId === model.id && styles.selectedModelButton
-                        ]}
-                        onPress={() => onSelectModel(model.id)}
-                        activeOpacity={0.7}
-                    >
-                        <Text
+                {GEMINI_MODELS.map((model) => {
+                    const isSelected = model.id === selectedModelId;
+                    return (
+                        <TouchableOpacity
+                            key={model.id}
                             style={[
-                                styles.modelText,
-                                selectedModelId === model.id && styles.selectedModelText
+                                styles.modelButton,
+                                { backgroundColor: theme.surface, borderColor: theme.border },
+                                isSelected && { backgroundColor: theme.primary, borderColor: theme.primary },
                             ]}
+                            onPress={() => onSelectModel(model.id)}
+                            activeOpacity={0.7}
                         >
-                            {model.name}
-                        </Text>
-                        {model.isNew && (
-                            <View style={styles.newBadge}>
-                                <Text style={styles.newBadgeText}>MỚI</Text>
-                            </View>
-                        )}
-                    </TouchableOpacity>
-                ))}
+                            <Text
+                                style={[
+                                    styles.modelName,
+                                    { color: isSelected ? '#fff' : theme.textPrimary },
+                                ]}
+                            >
+                                {model.name}
+                            </Text>
+                            {model.isNew && (
+                                <View style={[styles.newBadge, isSelected && { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
+                                    <Text style={[styles.newBadgeText, isSelected && { color: '#fff' }]}>NEW</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                    );
+                })}
             </ScrollView>
         </View>
     );
@@ -48,49 +55,36 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ selectedModelId, onSelect
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: Colors.background,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
-    },
-    contentContainer: {
-        paddingHorizontal: Spacing.base,
         paddingVertical: Spacing.sm,
+        borderBottomWidth: 1,
+    },
+    scrollContent: {
+        paddingHorizontal: Spacing.base,
+        gap: Spacing.sm,
     },
     modelButton: {
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 6,
-        borderRadius: BorderRadius.full,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        marginRight: Spacing.sm,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.surface,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+        borderRadius: BorderRadius.full,
+        borderWidth: 1,
     },
-    selectedModelButton: {
-        backgroundColor: Colors.primary,
-        borderColor: Colors.primary,
-    },
-    modelText: {
-        fontSize: FontSizes.xs,
-        color: Colors.textSecondary,
+    modelName: {
+        fontSize: FontSizes.sm,
         fontWeight: '500',
     },
-    selectedModelText: {
-        color: '#FFFFFF',
-        fontWeight: '600',
-    },
     newBadge: {
-        backgroundColor: Colors.error,
-        borderRadius: 4,
-        paddingHorizontal: 4,
-        paddingVertical: 1,
+        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+        borderRadius: 6,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
         marginLeft: 6,
     },
     newBadgeText: {
-        fontSize: 8,
-        color: '#FFFFFF',
-        fontWeight: 'bold',
+        fontSize: 9,
+        fontWeight: '700',
+        color: '#EF4444',
     },
 });
 

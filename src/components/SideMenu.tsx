@@ -9,9 +9,10 @@ import {
     Modal,
     Platform,
 } from 'react-native';
-import { Colors, Spacing, FontSizes, BorderRadius } from '../constants/Colors';
+import { Spacing, FontSizes, BorderRadius } from '../constants/Colors';
 import { ChatSession } from '../services/chatService';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 const MENU_WIDTH = width * 0.8;
@@ -37,6 +38,7 @@ const SideMenu: React.FC<SideMenuProps> = ({
     onDeleteSession,
     onSettingsPress,
 }) => {
+    const { theme } = useTheme();
     const [deleteTarget, setDeleteTarget] = useState<ChatSession | null>(null);
 
     if (!isVisible) return null;
@@ -59,22 +61,22 @@ const SideMenu: React.FC<SideMenuProps> = ({
     return (
         <View style={styles.overlay}>
             <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
-            <View style={styles.menuContainer}>
-                <View style={styles.header}>
-                    <TouchableOpacity style={styles.newChatButton} onPress={onNewChat}>
-                        <Ionicons name="add" size={24} color={Colors.textPrimary} />
-                        <Text style={styles.newChatText}>Cuộc trò chuyện mới</Text>
+            <View style={[styles.menuContainer, { backgroundColor: theme.surface }]}>
+                <View style={[styles.header, { borderBottomColor: theme.border }]}>
+                    <TouchableOpacity style={[styles.newChatButton, { backgroundColor: theme.background, borderColor: theme.border }]} onPress={onNewChat}>
+                        <Ionicons name="add" size={24} color={theme.textPrimary} />
+                        <Text style={[styles.newChatText, { color: theme.textPrimary }]}>Cuộc trò chuyện mới</Text>
                     </TouchableOpacity>
                 </View>
 
                 <ScrollView style={styles.sessionList} showsVerticalScrollIndicator={false}>
-                    <Text style={styles.sectionTitle}>Gần đây</Text>
+                    <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Gần đây</Text>
                     {sessions.map((session) => (
                         <View
                             key={session.id}
                             style={[
                                 styles.sessionItem,
-                                currentSessionId === session.id && styles.activeSessionItem
+                                currentSessionId === session.id && { backgroundColor: theme.background },
                             ]}
                         >
                             <TouchableOpacity
@@ -85,14 +87,15 @@ const SideMenu: React.FC<SideMenuProps> = ({
                                 <Ionicons
                                     name="chatbubble-outline"
                                     size={18}
-                                    color={currentSessionId === session.id ? Colors.primary : Colors.textSecondary}
+                                    color={currentSessionId === session.id ? theme.primary : theme.textSecondary}
                                     style={{ marginRight: 10 }}
                                 />
                                 <View style={{ flex: 1 }}>
                                     <Text
                                         style={[
                                             styles.sessionTitle,
-                                            currentSessionId === session.id && styles.activeSessionText
+                                            { color: theme.textPrimary },
+                                            currentSessionId === session.id && { color: theme.primary, fontWeight: 'bold' },
                                         ]}
                                         numberOfLines={1}
                                     >
@@ -111,10 +114,10 @@ const SideMenu: React.FC<SideMenuProps> = ({
                     ))}
                 </ScrollView>
 
-                <View style={styles.footer}>
+                <View style={[styles.footer, { borderTopColor: theme.border }]}>
                     <TouchableOpacity style={styles.footerItem} onPress={onSettingsPress}>
-                        <Ionicons name="settings-outline" size={24} color={Colors.textPrimary} />
-                        <Text style={styles.footerText}>Cài đặt</Text>
+                        <Ionicons name="settings-outline" size={24} color={theme.textPrimary} />
+                        <Text style={[styles.footerText, { color: theme.textPrimary }]}>Cài đặt</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -127,21 +130,21 @@ const SideMenu: React.FC<SideMenuProps> = ({
                 onRequestClose={handleCancelDelete}
             >
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
+                    <View style={[styles.modalContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                         <View style={styles.modalIconWrapper}>
                             <Ionicons name="trash-outline" size={32} color="#FF4444" />
                         </View>
-                        <Text style={styles.modalTitle}>Xóa cuộc trò chuyện</Text>
-                        <Text style={styles.modalMessage}>
+                        <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Xóa cuộc trò chuyện</Text>
+                        <Text style={[styles.modalMessage, { color: theme.textSecondary }]}>
                             Bạn có chắc chắn muốn xóa "{deleteTarget?.title}"?
                         </Text>
                         <View style={styles.modalButtons}>
                             <TouchableOpacity
-                                style={styles.cancelButton}
+                                style={[styles.cancelButton, { backgroundColor: theme.background, borderColor: theme.border }]}
                                 onPress={handleCancelDelete}
                                 activeOpacity={0.7}
                             >
-                                <Text style={styles.cancelButtonText}>Hủy</Text>
+                                <Text style={[styles.cancelButtonText, { color: theme.textPrimary }]}>Hủy</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.confirmDeleteButton}
@@ -179,29 +182,24 @@ const styles = StyleSheet.create({
     menuContainer: {
         width: MENU_WIDTH,
         height: '100%',
-        backgroundColor: Colors.surface,
         flexDirection: 'column',
     },
     header: {
         padding: Spacing.md,
         paddingTop: Platform.OS === 'android' ? 40 : 60,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
     },
     newChatButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.background,
         padding: Spacing.md,
         borderRadius: BorderRadius.md,
         borderWidth: 1,
-        borderColor: Colors.border,
     },
     newChatText: {
         marginLeft: Spacing.sm,
         fontSize: FontSizes.base,
         fontWeight: '500',
-        color: Colors.textPrimary,
     },
     sessionList: {
         flex: 1,
@@ -209,7 +207,6 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: FontSizes.sm,
-        color: Colors.textSecondary,
         marginBottom: Spacing.sm,
         marginTop: Spacing.sm,
         fontWeight: '500',
@@ -222,12 +219,8 @@ const styles = StyleSheet.create({
         borderRadius: BorderRadius.sm,
         marginBottom: 2,
     },
-    activeSessionItem: {
-        backgroundColor: Colors.background,
-    },
     sessionTitle: {
         fontSize: FontSizes.base,
-        color: Colors.textPrimary,
     },
     sessionContent: {
         flex: 1,
@@ -238,14 +231,9 @@ const styles = StyleSheet.create({
         padding: 6,
         marginLeft: 4,
     },
-    activeSessionText: {
-        color: Colors.primary,
-        fontWeight: 'bold',
-    },
     footer: {
         padding: Spacing.md,
         borderTopWidth: 1,
-        borderTopColor: Colors.border,
         paddingBottom: Platform.OS === 'ios' ? 40 : Spacing.md,
     },
     footerItem: {
@@ -256,7 +244,6 @@ const styles = StyleSheet.create({
     footerText: {
         marginLeft: Spacing.sm,
         fontSize: FontSizes.base,
-        color: Colors.textPrimary,
     },
     // Custom Modal styles
     modalOverlay: {
@@ -266,14 +253,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     modalContainer: {
-        backgroundColor: Colors.surface,
         borderRadius: BorderRadius.lg,
         padding: Spacing.xl,
         width: '80%',
         maxWidth: 340,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: Colors.border,
     },
     modalIconWrapper: {
         width: 56,
@@ -287,12 +272,10 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: FontSizes.lg,
         fontWeight: 'bold',
-        color: Colors.textPrimary,
         marginBottom: Spacing.sm,
     },
     modalMessage: {
         fontSize: FontSizes.base,
-        color: Colors.textSecondary,
         textAlign: 'center',
         marginBottom: Spacing.xl,
         lineHeight: 22,
@@ -306,15 +289,12 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingVertical: Spacing.md,
         borderRadius: BorderRadius.md,
-        backgroundColor: Colors.background,
         borderWidth: 1,
-        borderColor: Colors.border,
         alignItems: 'center',
     },
     cancelButtonText: {
         fontSize: FontSizes.base,
         fontWeight: '600',
-        color: Colors.textPrimary,
     },
     confirmDeleteButton: {
         flex: 1,

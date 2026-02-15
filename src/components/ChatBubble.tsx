@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, FontSizes, BorderRadius } from '../constants/Colors';
+import * as Clipboard from 'expo-clipboard';
+import Markdown from 'react-native-markdown-display';
+import { Spacing, FontSizes, BorderRadius } from '../constants/Colors';
+import { useTheme } from '../context/ThemeContext';
 
 export interface Message {
     id: string;
@@ -18,90 +20,221 @@ interface ChatBubbleProps {
 }
 
 const ChatBubble: React.FC<ChatBubbleProps> = ({ message, onReload, onEdit }) => {
+    const { theme } = useTheme();
     const isUser = message.isUser;
-    const [isCopied, setIsCopied] = useState(false);
 
     const handleCopy = async () => {
         await Clipboard.setStringAsync(message.text);
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000);
     };
 
-    return (
-        <View
-            style={[
-                styles.container,
-                isUser ? styles.userContainer : styles.aiContainer,
-            ]}
-        >
-            {!isUser && (
-                <View style={styles.avatarContainer}>
-                    <Image
-                        source={require('../../assets/logo.png')}
-                        style={styles.avatarImage}
-                        resizeMode="contain"
-                    />
-                </View>
-            )}
+    const formatTime = (date: Date) => {
+        return new Date(date).toLocaleTimeString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    };
 
+    // Dynamic markdown styles based on current theme
+    const markdownStyles = React.useMemo(() => ({
+        body: {
+            color: isUser ? theme.userBubbleText : theme.aiBubbleText,
+            fontSize: FontSizes.base,
+            lineHeight: 22,
+        },
+        paragraph: {
+            marginTop: 0,
+            marginBottom: 6,
+        },
+        strong: {
+            fontWeight: '700' as const,
+            color: isUser ? theme.userBubbleText : theme.aiBubbleText,
+        },
+        em: {
+            fontStyle: 'italic' as const,
+            color: isUser ? theme.userBubbleText : theme.aiBubbleText,
+        },
+        heading1: {
+            fontSize: 20,
+            fontWeight: '700' as const,
+            color: isUser ? theme.userBubbleText : theme.aiBubbleText,
+            marginTop: 8,
+            marginBottom: 4,
+        },
+        heading2: {
+            fontSize: 18,
+            fontWeight: '700' as const,
+            color: isUser ? theme.userBubbleText : theme.aiBubbleText,
+            marginTop: 6,
+            marginBottom: 4,
+        },
+        heading3: {
+            fontSize: 16,
+            fontWeight: '600' as const,
+            color: isUser ? theme.userBubbleText : theme.aiBubbleText,
+            marginTop: 4,
+            marginBottom: 2,
+        },
+        code_inline: {
+            backgroundColor: isUser ? 'rgba(255,255,255,0.15)' : theme.surfaceHover,
+            color: isUser ? theme.userBubbleText : theme.primary,
+            paddingHorizontal: 5,
+            paddingVertical: 2,
+            borderRadius: 4,
+            fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+            fontSize: 13,
+        },
+        code_block: {
+            backgroundColor: isUser ? 'rgba(0,0,0,0.2)' : theme.background,
+            borderRadius: 8,
+            padding: 12,
+            fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+            fontSize: 13,
+            color: isUser ? theme.userBubbleText : theme.textPrimary,
+        },
+        fence: {
+            backgroundColor: isUser ? 'rgba(0,0,0,0.2)' : theme.background,
+            borderRadius: 8,
+            padding: 12,
+            fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+            fontSize: 13,
+            color: isUser ? theme.userBubbleText : theme.textPrimary,
+            marginVertical: 6,
+        },
+        blockquote: {
+            backgroundColor: isUser ? 'rgba(255,255,255,0.1)' : theme.surfaceHover,
+            borderLeftColor: theme.primary,
+            borderLeftWidth: 3,
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            marginVertical: 4,
+        },
+        list_item: {
+            marginVertical: 2,
+        },
+        bullet_list: {
+            marginVertical: 4,
+        },
+        ordered_list: {
+            marginVertical: 4,
+        },
+        bullet_list_icon: {
+            color: isUser ? theme.userBubbleText : theme.primary,
+            marginRight: 6,
+        },
+        ordered_list_icon: {
+            color: isUser ? theme.userBubbleText : theme.primary,
+            marginRight: 6,
+        },
+        hr: {
+            backgroundColor: isUser ? 'rgba(255,255,255,0.3)' : theme.border,
+            height: 1,
+            marginVertical: 8,
+        },
+        link: {
+            color: isUser ? '#93C5FD' : theme.primary,
+            textDecorationLine: 'underline' as const,
+        },
+        table: {
+            borderWidth: 1,
+            borderColor: isUser ? 'rgba(255,255,255,0.3)' : theme.border,
+            borderRadius: 4,
+            marginVertical: 4,
+        },
+        thead: {
+            backgroundColor: isUser ? 'rgba(255,255,255,0.1)' : theme.surfaceHover,
+        },
+        th: {
+            padding: 6,
+            color: isUser ? theme.userBubbleText : theme.textPrimary,
+            fontWeight: '600' as const,
+        },
+        td: {
+            padding: 6,
+            color: isUser ? theme.userBubbleText : theme.aiBubbleText,
+        },
+        tr: {
+            borderBottomWidth: 1,
+            borderColor: isUser ? 'rgba(255,255,255,0.2)' : theme.border,
+        },
+    }), [theme, isUser]);
+
+    return (
+        <View style={[styles.container, isUser && styles.userContainer]}>
             <View
                 style={[
                     styles.bubble,
-                    isUser ? styles.userBubble : styles.aiBubble,
+                    isUser
+                        ? [styles.userBubble, { backgroundColor: theme.userBubble }]
+                        : [styles.aiBubble, { backgroundColor: theme.aiBubble }],
                 ]}
             >
-                <Text
-                    selectable={true}
-                    selectionColor={Colors.primary + '66'}
-                    style={[
-                        styles.messageText,
-                        isUser ? styles.userText : styles.aiText,
-                    ]}
-                >
-                    {message.text}
-                </Text>
+                {!isUser && (
+                    <View style={styles.aiHeader}>
+                        <Ionicons name="sparkles" size={14} color={theme.primary} />
+                        <Text style={[styles.aiLabel, { color: theme.primary }]}>VIA AI</Text>
+                    </View>
+                )}
 
-                <View style={styles.footerContainer}>
-                    <Text style={styles.timestamp}>
-                        {message.timestamp.toLocaleTimeString('vi-VN', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                        })}
+                {isUser ? (
+                    // User messages: plain text
+                    <Text
+                        style={[
+                            styles.messageText,
+                            { color: theme.userBubbleText },
+                        ]}
+                        selectable={true}
+                    >
+                        {message.text}
+                    </Text>
+                ) : (
+                    // AI messages: rendered markdown
+                    <Markdown style={markdownStyles}>
+                        {message.text}
+                    </Markdown>
+                )}
+
+                <View style={styles.footer}>
+                    <Text
+                        style={[
+                            styles.timestamp,
+                            { color: isUser ? 'rgba(255,255,255,0.7)' : theme.textMuted },
+                        ]}
+                    >
+                        {formatTime(message.timestamp)}
                     </Text>
 
-                    <View style={styles.actionButtons}>
-                        {/* Copy button */}
-                        <TouchableOpacity
-                            onPress={handleCopy}
-                            style={styles.actionBtn}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
+                    <View style={styles.actions}>
+                        <TouchableOpacity onPress={handleCopy} style={styles.actionButton}>
                             <Ionicons
-                                name={isCopied ? "checkmark" : "copy-outline"}
+                                name="copy-outline"
                                 size={14}
-                                color={isCopied ? Colors.primary : Colors.textMuted}
+                                color={isUser ? 'rgba(255,255,255,0.7)' : theme.textMuted}
                             />
                         </TouchableOpacity>
 
-                        {/* Edit button - only for user messages */}
                         {isUser && onEdit && (
                             <TouchableOpacity
                                 onPress={() => onEdit(message.id)}
-                                style={styles.actionBtn}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                style={styles.actionButton}
                             >
-                                <Ionicons name="create-outline" size={14} color={Colors.textMuted} />
+                                <Ionicons
+                                    name="pencil-outline"
+                                    size={14}
+                                    color="rgba(255,255,255,0.7)"
+                                />
                             </TouchableOpacity>
                         )}
 
-                        {/* Reload button - only for user messages */}
-                        {isUser && onReload && (
+                        {onReload && (
                             <TouchableOpacity
                                 onPress={() => onReload(message.id)}
-                                style={styles.actionBtn}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                style={styles.actionButton}
                             >
-                                <Ionicons name="reload-outline" size={14} color={Colors.textMuted} />
+                                <Ionicons
+                                    name="reload-outline"
+                                    size={14}
+                                    color={isUser ? 'rgba(255,255,255,0.7)' : theme.textMuted}
+                                />
                             </TouchableOpacity>
                         )}
                     </View>
@@ -113,82 +246,53 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message, onReload, onEdit }) =>
 
 const styles = StyleSheet.create({
     container: {
-        flexDirection: 'row',
-        marginVertical: Spacing.sm,
         paddingHorizontal: Spacing.base,
+        paddingVertical: Spacing.xs,
     },
     userContainer: {
-        justifyContent: 'flex-end',
-    },
-    aiContainer: {
-        justifyContent: 'flex-start',
-    },
-    avatarContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: BorderRadius.full,
-        backgroundColor: Colors.primary,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: Spacing.sm,
-        marginTop: 4,
-    },
-    avatarImage: {
-        width: 20,
-        height: 20,
+        alignItems: 'flex-end',
     },
     bubble: {
-        maxWidth: '75%',
-        paddingHorizontal: Spacing.base,
-        paddingVertical: Spacing.md,
+        maxWidth: '85%',
         borderRadius: BorderRadius.lg,
+        padding: Spacing.md,
     },
     userBubble: {
-        backgroundColor: Colors.userBubble,
         borderBottomRightRadius: 4,
     },
     aiBubble: {
-        backgroundColor: Colors.aiBubble,
         borderBottomLeftRadius: 4,
-        borderWidth: 1,
-        borderColor: Colors.border,
+    },
+    aiHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: Spacing.xs,
+    },
+    aiLabel: {
+        fontSize: FontSizes.xs,
+        fontWeight: '600',
+        marginLeft: 4,
     },
     messageText: {
         fontSize: FontSizes.base,
         lineHeight: 22,
     },
-    userText: {
-        color: Colors.userBubbleText,
-    },
-    aiText: {
-        color: Colors.aiBubbleText,
-    },
-    footerContainer: {
+    footer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: Spacing.xs,
-        minWidth: 60,
+        marginTop: Spacing.sm,
     },
     timestamp: {
-        fontSize: FontSizes.xs,
-        color: Colors.textMuted,
-    },
-    actionButtons: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-    },
-    actionBtn: {
-        padding: 4,
-        borderRadius: 4,
-    },
-    copiedText: {
         fontSize: 10,
-        color: Colors.primary,
-        marginLeft: 4,
-        fontWeight: '500',
-    }
+    },
+    actions: {
+        flexDirection: 'row',
+        gap: Spacing.xs,
+    },
+    actionButton: {
+        padding: 4,
+    },
 });
 
 export default ChatBubble;
