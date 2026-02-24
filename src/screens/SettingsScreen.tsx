@@ -8,6 +8,7 @@ import {
     Switch,
     Alert,
     StatusBar,
+    Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -71,40 +72,58 @@ const SettingsScreen: React.FC = () => {
     const { theme, isDarkMode, toggleTheme } = useTheme();
 
     const handleClearHistory = useCallback(() => {
-        Alert.alert(
-            'Xóa lịch sử',
-            'Bạn có chắc chắn muốn xóa tất cả lịch sử trò chuyện? Hành động này không thể hoàn tác.',
-            [
-                { text: 'Hủy', style: 'cancel' },
-                {
-                    text: 'Xóa tất cả',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            const sessions = await getSessions();
-                            for (const session of sessions) {
-                                await deleteSession(session.id);
-                            }
-                            Alert.alert('Thành công', 'Đã xóa tất cả lịch sử trò chuyện.');
-                        } catch (e) {
-                            console.error('Failed to clear history:', e);
-                            Alert.alert('Lỗi', 'Không thể xóa lịch sử. Vui lòng thử lại.');
-                        }
-                    },
-                },
-            ]
-        );
+        const doClear = async () => {
+            try {
+                const sessions = await getSessions();
+                for (const session of sessions) {
+                    await deleteSession(session.id);
+                }
+                if (Platform.OS === 'web') {
+                    window.alert('Đã xóa tất cả lịch sử trò chuyện.');
+                } else {
+                    Alert.alert('Thành công', 'Đã xóa tất cả lịch sử trò chuyện.');
+                }
+            } catch (e) {
+                console.error('Failed to clear history:', e);
+                if (Platform.OS === 'web') {
+                    window.alert('Không thể xóa lịch sử. Vui lòng thử lại.');
+                } else {
+                    Alert.alert('Lỗi', 'Không thể xóa lịch sử. Vui lòng thử lại.');
+                }
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm('Bạn có chắc chắn muốn xóa tất cả lịch sử trò chuyện? Hành động này không thể hoàn tác.')) {
+                doClear();
+            }
+        } else {
+            Alert.alert(
+                'Xóa lịch sử',
+                'Bạn có chắc chắn muốn xóa tất cả lịch sử trò chuyện? Hành động này không thể hoàn tác.',
+                [
+                    { text: 'Hủy', style: 'cancel' },
+                    { text: 'Xóa tất cả', style: 'destructive', onPress: doClear },
+                ]
+            );
+        }
     }, []);
 
     const handleLogout = () => {
-        Alert.alert(
-            'Đăng xuất',
-            'Bạn có chắc chắn muốn đăng xuất?',
-            [
-                { text: 'Hủy', style: 'cancel' },
-                { text: 'Đăng xuất', style: 'destructive', onPress: logout },
-            ]
-        );
+        if (Platform.OS === 'web') {
+            if (window.confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+                logout();
+            }
+        } else {
+            Alert.alert(
+                'Đăng xuất',
+                'Bạn có chắc chắn muốn đăng xuất?',
+                [
+                    { text: 'Hủy', style: 'cancel' },
+                    { text: 'Đăng xuất', style: 'destructive', onPress: logout },
+                ]
+            );
+        }
     };
 
     return (

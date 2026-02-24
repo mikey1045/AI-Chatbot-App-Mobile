@@ -5,7 +5,7 @@ import {
     StyleSheet,
     TouchableOpacity,
     ScrollView,
-    Dimensions,
+    useWindowDimensions,
     Modal,
     Platform,
 } from 'react-native';
@@ -13,9 +13,6 @@ import { Spacing, FontSizes, BorderRadius } from '../constants/Colors';
 import { ChatSession } from '../services/chatService';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-
-const { width, height } = Dimensions.get('window');
-const MENU_WIDTH = width * 0.8;
 
 interface SideMenuProps {
     isVisible: boolean;
@@ -39,6 +36,8 @@ const SideMenu: React.FC<SideMenuProps> = ({
     onSettingsPress,
 }) => {
     const { theme } = useTheme();
+    const { width: screenWidth } = useWindowDimensions();
+    const menuWidth = Math.min(screenWidth * 0.8, 360);
     const [deleteTarget, setDeleteTarget] = useState<ChatSession | null>(null);
 
     if (!isVisible) return null;
@@ -61,7 +60,7 @@ const SideMenu: React.FC<SideMenuProps> = ({
     return (
         <View style={styles.overlay}>
             <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
-            <View style={[styles.menuContainer, { backgroundColor: theme.surface }]}>
+            <View style={[styles.menuContainer, { backgroundColor: theme.surface, width: menuWidth }]}>
                 <View style={[styles.header, { borderBottomColor: theme.border }]}>
                     <TouchableOpacity style={[styles.newChatButton, { backgroundColor: theme.background, borderColor: theme.border }]} onPress={onNewChat}>
                         <Ionicons name="add" size={24} color={theme.textPrimary} />
@@ -166,8 +165,10 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: 0,
         left: 0,
-        width: width,
-        height: height,
+        right: 0,
+        bottom: 0,
+        width: '100%',
+        height: '100%',
         zIndex: 1000,
         elevation: 1000,
     },
@@ -175,12 +176,13 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: 0,
         left: 0,
-        width: width,
-        height: height,
+        right: 0,
+        bottom: 0,
+        width: '100%',
+        height: '100%',
         backgroundColor: 'rgba(0,0,0,0.5)',
     },
     menuContainer: {
-        width: MENU_WIDTH,
         height: '100%',
         flexDirection: 'column',
     },
