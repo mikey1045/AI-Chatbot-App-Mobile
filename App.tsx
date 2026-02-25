@@ -28,8 +28,9 @@ const AppContent = () => {
   const [isSplashDone, setIsSplashDone] = useState(false);
   const [isAuthChecked, setIsAuthChecked] = useState(false);
   const authResultRef = useRef<{ user: User | null; screen: ScreenName }>({ user: null, screen: 'login' });
+  const lastAuthUidRef = useRef<string | null | undefined>(undefined); // undefined = not yet received
 
-  // Run auto-login in background while splash screen is showing
+  // Run auto-login in background (native only, web returns null)
   useEffect(() => {
     const autoLogin = async () => {
       try {
@@ -42,17 +43,59 @@ const AppContent = () => {
             email: autoUser.email || '',
           };
           authResultRef.current = { user: userData, screen: 'chat' };
-        } else {
-          authResultRef.current = { user: null, screen: 'login' };
+          lastAuthUidRef.current = autoUser.uid;
+          setIsAuthChecked(true);
         }
       } catch (error) {
         console.log('Auto sign-in skipped');
-        authResultRef.current = { user: null, screen: 'login' };
       }
-      setIsAuthChecked(true);
     };
 
     autoLogin();
+  }, []);
+
+  // Listen to Firebase auth state changes (runs once, never re-subscribes)
+  // On web, this is the primary way to detect previously logged-in users
+  // On native, tryAutoSignIn handles initial login, this catches subsequent changes
+  useEffect(() => {
+    const unsubscribe = subscribeToAuthChanges((firebaseUser) => {
+      const newUid = firebaseUser?.uid ?? null;
+      const previousUid = lastAuthUidRef.current;
+
+      // Update tracking
+      lastAuthUidRef.current = newUid;
+
+      if (firebaseUser) {
+        setCurrentUserId(firebaseUser.uid);
+        const userData: User = {
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+          email: firebaseUser.email || '',
+        };
+
+        if (!isAuthChecked) {
+          // During splash - store for later navigation
+          authResultRef.current = { user: userData, screen: 'chat' };
+          setIsAuthChecked(true);
+        } else if (previousUid !== newUid) {
+          // After splash - only navigate if user actually changed (new login)
+          setUser(userData);
+          setCurrentScreen('chat');
+        }
+      } else {
+        if (!isAuthChecked) {
+          authResultRef.current = { user: null, screen: 'login' };
+          setIsAuthChecked(true);
+        } else if (previousUid !== null && previousUid !== undefined) {
+          // User signed out (was logged in before)
+          setCurrentUserId(null);
+          setUser(null);
+          setCurrentScreen('login');
+        }
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // When both splash animation and auth check are done, navigate
@@ -66,28 +109,6 @@ const AppContent = () => {
     }
   }, [isSplashDone, isAuthChecked]);
 
-  // Handle Firebase auth state changes (after splash)
-  useEffect(() => {
-    const unsubscribe = subscribeToAuthChanges((firebaseUser) => {
-      if (firebaseUser) {
-        setCurrentUserId(firebaseUser.uid);
-        setUser({
-          id: firebaseUser.uid,
-          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-          email: firebaseUser.email || '',
-        });
-        if (currentScreen !== 'splash') {
-          setCurrentScreen('chat');
-        }
-      } else if (currentScreen !== 'splash') {
-        setCurrentUserId(null);
-        setUser(null);
-        setCurrentScreen('login');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [currentScreen]);
 
   const navigate = (screen: ScreenName) => {
     setPreviousScreen(currentScreen);

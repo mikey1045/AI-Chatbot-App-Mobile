@@ -5,6 +5,7 @@ import {
     StyleSheet,
     Animated,
     StatusBar,
+    Image,
 } from 'react-native';
 import { FontSizes } from '../constants/Colors';
 import { useTheme } from '../context/ThemeContext';
@@ -85,9 +86,11 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
                     },
                 ]}
             >
-                <View style={[styles.logoWrapper, { backgroundColor: theme.primary }]}>
-                    <Text style={[styles.logoText, { color: '#FFFFFF' }]}>V</Text>
-                </View>
+                <Image
+                    source={require('../../assets/logo.png')}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                />
 
                 <Text style={[styles.appName, { color: theme.textPrimary }]}>VIA AI</Text>
                 <Text style={[styles.tagline, { color: theme.textSecondary }]}>Powered by Gemini</Text>
@@ -111,17 +114,9 @@ const styles = StyleSheet.create({
     logoContainer: {
         alignItems: 'center',
     },
-    logoWrapper: {
+    logoImage: {
         width: 100,
         height: 100,
-        borderRadius: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    logoText: {
-        fontSize: 56,
-        fontWeight: '900',
-        fontStyle: 'italic',
     },
     appName: {
         fontSize: FontSizes.xxxl,

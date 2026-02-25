@@ -185,10 +185,12 @@ const styles = StyleSheet.create({
     menuContainer: {
         height: '100%',
         flexDirection: 'column',
+        zIndex: 1001,
+        elevation: 1001,
     },
     header: {
         padding: Spacing.md,
-        paddingTop: Platform.OS === 'android' ? 40 : 60,
+        paddingTop: Platform.OS === 'android' ? 40 : Platform.OS === 'web' ? 20 : 60,
         borderBottomWidth: 1,
     },
     newChatButton: {
@@ -236,12 +238,13 @@ const styles = StyleSheet.create({
     footer: {
         padding: Spacing.md,
         borderTopWidth: 1,
-        paddingBottom: Platform.OS === 'ios' ? 40 : Spacing.md,
+        paddingBottom: Platform.OS === 'ios' ? 40 : Platform.OS === 'web' ? Spacing.lg : Spacing.md,
     },
     footerItem: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: Spacing.sm,
+        cursor: Platform.OS === 'web' ? 'pointer' : undefined,
     },
     footerText: {
         marginLeft: Spacing.sm,
