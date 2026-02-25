@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -8,7 +8,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
-import { FontSizes } from './src/constants/Colors';
+import SplashScreen from './src/screens/SplashScreen';
 import { NavigationContext, ScreenName, User } from './src/context/NavigationContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import {
@@ -19,58 +19,54 @@ import {
 } from './src/config/firebaseConfig';
 import { setCurrentUserId } from './src/services/chatStorage';
 
-// Loading Screen - uses theme
-const LoadingScreen = () => {
-  const { theme } = useTheme();
-  return (
-    <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
-      <Image
-        source={require('./assets/logo.png')}
-        style={styles.loadingLogoImage}
-        resizeMode="contain"
-      />
-      <Text style={[styles.loadingTitle, { color: theme.textPrimary }]}>VIA AI</Text>
-      <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 20 }} />
-    </View>
-  );
-};
-
 // Inner app that uses theme context
 const AppContent = () => {
   const { theme, isDarkMode } = useTheme();
-  const [currentScreen, setCurrentScreen] = useState<ScreenName>('loading');
+  const [currentScreen, setCurrentScreen] = useState<ScreenName>('splash');
   const [previousScreen, setPreviousScreen] = useState<ScreenName>('chat');
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isSplashDone, setIsSplashDone] = useState(false);
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
+  const authResultRef = useRef<{ user: User | null; screen: ScreenName }>({ user: null, screen: 'login' });
 
-  // Thử tự động đăng nhập khi mở app
+  // Run auto-login in background while splash screen is showing
   useEffect(() => {
     const autoLogin = async () => {
       try {
         const autoUser = await tryAutoSignIn();
         if (autoUser) {
           setCurrentUserId(autoUser.uid);
-          setUser({
+          const userData: User = {
             id: autoUser.uid,
             name: autoUser.displayName || autoUser.email?.split('@')[0] || 'User',
             email: autoUser.email || '',
-          });
-          setCurrentScreen('chat');
-          setIsLoading(false);
-          return;
+          };
+          authResultRef.current = { user: userData, screen: 'chat' };
+        } else {
+          authResultRef.current = { user: null, screen: 'login' };
         }
       } catch (error) {
         console.log('Auto sign-in skipped');
+        authResultRef.current = { user: null, screen: 'login' };
       }
-
-      setIsLoading(false);
-      setCurrentScreen('login');
+      setIsAuthChecked(true);
     };
 
     autoLogin();
   }, []);
 
-  // Handle Firebase auth state changes
+  // When both splash animation and auth check are done, navigate
+  useEffect(() => {
+    if (isSplashDone && isAuthChecked) {
+      const { user: authUser, screen } = authResultRef.current;
+      if (authUser) {
+        setUser(authUser);
+      }
+      setCurrentScreen(screen);
+    }
+  }, [isSplashDone, isAuthChecked]);
+
+  // Handle Firebase auth state changes (after splash)
   useEffect(() => {
     const unsubscribe = subscribeToAuthChanges((firebaseUser) => {
       if (firebaseUser) {
@@ -80,8 +76,10 @@ const AppContent = () => {
           name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
           email: firebaseUser.email || '',
         });
-        setCurrentScreen('chat');
-      } else if (!isLoading) {
+        if (currentScreen !== 'splash') {
+          setCurrentScreen('chat');
+        }
+      } else if (currentScreen !== 'splash') {
         setCurrentUserId(null);
         setUser(null);
         setCurrentScreen('login');
@@ -89,7 +87,7 @@ const AppContent = () => {
     });
 
     return () => unsubscribe();
-  }, [isLoading]);
+  }, [currentScreen]);
 
   const navigate = (screen: ScreenName) => {
     setPreviousScreen(currentScreen);
@@ -123,9 +121,13 @@ const AppContent = () => {
     }
   };
 
+  const handleSplashFinish = useCallback(() => {
+    setIsSplashDone(true);
+  }, []);
+
   const renderScreen = () => {
-    if (isLoading || currentScreen === 'loading') {
-      return <LoadingScreen />;
+    if (currentScreen === 'splash') {
+      return <SplashScreen onFinish={handleSplashFinish} />;
     }
 
     switch (currentScreen) {
@@ -162,20 +164,3 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingLogoImage: {
-    width: 100,
-    height: 100,
-    marginBottom: 10,
-  },
-  loadingTitle: {
-    fontSize: FontSizes.xxl,
-    fontWeight: 'bold',
-    marginTop: 16,
-  },
-});

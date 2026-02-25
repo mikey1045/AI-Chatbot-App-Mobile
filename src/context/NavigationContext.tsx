@@ -7,7 +7,7 @@ export interface User {
     email: string;
 }
 
-export type ScreenName = 'loading' | 'login' | 'chat' | 'history' | 'settings';
+export type ScreenName = 'splash' | 'loading' | 'login' | 'chat' | 'history' | 'settings';
 
 export interface NavigationContextType {
     navigate: (screen: ScreenName) => void;

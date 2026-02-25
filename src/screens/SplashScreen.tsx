@@ -17,8 +17,12 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
     const { theme, isDarkMode } = useTheme();
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const scaleAnim = useRef(new Animated.Value(0.8)).current;
+    const dot1Anim = useRef(new Animated.Value(0.3)).current;
+    const dot2Anim = useRef(new Animated.Value(0.3)).current;
+    const dot3Anim = useRef(new Animated.Value(0.3)).current;
 
     useEffect(() => {
+        // Logo fade-in + scale animation
         Animated.parallel([
             Animated.timing(fadeAnim, {
                 toValue: 1,
@@ -33,12 +37,40 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
             }),
         ]).start();
 
+        // Sequential pulsing dots animation
+        const animateDots = () => {
+            const createPulse = (dotAnim: Animated.Value, delay: number) =>
+                Animated.sequence([
+                    Animated.delay(delay),
+                    Animated.timing(dotAnim, {
+                        toValue: 1,
+                        duration: 400,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(dotAnim, {
+                        toValue: 0.3,
+                        duration: 400,
+                        useNativeDriver: true,
+                    }),
+                ]);
+
+            Animated.loop(
+                Animated.parallel([
+                    createPulse(dot1Anim, 0),
+                    createPulse(dot2Anim, 200),
+                    createPulse(dot3Anim, 400),
+                ])
+            ).start();
+        };
+
+        animateDots();
+
         const timer = setTimeout(() => {
             onFinish?.();
         }, 2500);
 
         return () => clearTimeout(timer);
-    }, [fadeAnim, scaleAnim, onFinish]);
+    }, [fadeAnim, scaleAnim, dot1Anim, dot2Anim, dot3Anim, onFinish]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -53,8 +85,8 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
                     },
                 ]}
             >
-                <View style={styles.logoWrapper}>
-                    <Text style={[styles.logoText, { color: theme.textPrimary }]}>V</Text>
+                <View style={[styles.logoWrapper, { backgroundColor: theme.primary }]}>
+                    <Text style={[styles.logoText, { color: '#FFFFFF' }]}>V</Text>
                 </View>
 
                 <Text style={[styles.appName, { color: theme.textPrimary }]}>VIA AI</Text>
@@ -62,9 +94,9 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
             </Animated.View>
 
             <Animated.View style={[styles.loadingContainer, { opacity: fadeAnim }]}>
-                <View style={[styles.loadingDot, { backgroundColor: theme.primary }]} />
-                <View style={[styles.loadingDot, styles.loadingDotMiddle, { backgroundColor: theme.primary }]} />
-                <View style={[styles.loadingDot, { backgroundColor: theme.primary }]} />
+                <Animated.View style={[styles.loadingDot, { backgroundColor: theme.primary, opacity: dot1Anim }]} />
+                <Animated.View style={[styles.loadingDot, { backgroundColor: theme.primary, opacity: dot2Anim }]} />
+                <Animated.View style={[styles.loadingDot, { backgroundColor: theme.primary, opacity: dot3Anim }]} />
             </Animated.View>
         </View>
     );
@@ -82,23 +114,25 @@ const styles = StyleSheet.create({
     logoWrapper: {
         width: 100,
         height: 100,
+        borderRadius: 24,
         justifyContent: 'center',
         alignItems: 'center',
     },
     logoText: {
-        fontSize: 80,
+        fontSize: 56,
         fontWeight: '900',
         fontStyle: 'italic',
     },
     appName: {
         fontSize: FontSizes.xxxl,
         fontWeight: 'bold',
-        marginTop: 16,
-        letterSpacing: 2,
+        marginTop: 20,
+        letterSpacing: 4,
     },
     tagline: {
         fontSize: FontSizes.sm,
         marginTop: 8,
+        letterSpacing: 1,
     },
     loadingContainer: {
         flexDirection: 'row',
@@ -106,14 +140,12 @@ const styles = StyleSheet.create({
         bottom: 80,
     },
     loadingDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        marginHorizontal: 4,
-    },
-    loadingDotMiddle: {
-        opacity: 0.6,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        marginHorizontal: 6,
     },
 });
 
 export default SplashScreen;
+
