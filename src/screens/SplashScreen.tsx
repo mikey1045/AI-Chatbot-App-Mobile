@@ -4,6 +4,7 @@ import {
     Text,
     StyleSheet,
     Animated,
+    Image,
     StatusBar,
 } from 'react-native';
 import { FontSizes } from '../constants/Colors';
@@ -35,7 +36,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
 
         const timer = setTimeout(() => {
             onFinish?.();
-        }, 2500);
+        }, 5000);
 
         return () => clearTimeout(timer);
     }, [fadeAnim, scaleAnim, onFinish]);
@@ -54,7 +55,11 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
                 ]}
             >
                 <View style={styles.logoWrapper}>
-                    <Text style={[styles.logoText, { color: theme.textPrimary }]}>V</Text>
+                    <Image
+                        source={require('../../assets/logo.png')}
+                        style={styles.logoImage}
+                        resizeMode="contain"
+                    />
                 </View>
 
                 <Text style={[styles.appName, { color: theme.textPrimary }]}>VIA AI</Text>
@@ -85,10 +90,9 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    logoText: {
-        fontSize: 80,
-        fontWeight: '900',
-        fontStyle: 'italic',
+    logoImage: {
+        width: 90,
+        height: 90,
     },
     appName: {
         fontSize: FontSizes.xxxl,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
+import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -8,7 +8,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
-import { FontSizes } from './src/constants/Colors';
+import SplashScreen from './src/screens/SplashScreen';
 import { NavigationContext, ScreenName, User } from './src/context/NavigationContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import {
@@ -19,21 +19,7 @@ import {
 } from './src/config/firebaseConfig';
 import { setCurrentUserId } from './src/services/chatStorage';
 
-// Loading Screen - uses theme
-const LoadingScreen = () => {
-  const { theme } = useTheme();
-  return (
-    <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
-      <Image
-        source={require('./assets/logo.png')}
-        style={styles.loadingLogoImage}
-        resizeMode="contain"
-      />
-      <Text style={[styles.loadingTitle, { color: theme.textPrimary }]}>VIA AI</Text>
-      <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 20 }} />
-    </View>
-  );
-};
+// Splash Screen component is now being used from src/screens/SplashScreen.tsx
 
 // Inner app that uses theme context
 const AppContent = () => {
@@ -42,6 +28,7 @@ const AppContent = () => {
   const [previousScreen, setPreviousScreen] = useState<ScreenName>('chat');
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSplashFinished, setIsSplashFinished] = useState(false);
 
   // Thử tự động đăng nhập khi mở app
   useEffect(() => {
@@ -70,10 +57,11 @@ const AppContent = () => {
     autoLogin();
   }, []);
 
-  // Handle Firebase auth state changes
+  // Handle Firebase auth state changes — SINGLE SOURCE OF TRUTH
   useEffect(() => {
     const unsubscribe = subscribeToAuthChanges((firebaseUser) => {
       if (firebaseUser) {
+        // Cập nhật storage user ID TRƯỚC khi thay đổi state/screen
         setCurrentUserId(firebaseUser.uid);
         setUser({
           id: firebaseUser.uid,
@@ -82,6 +70,7 @@ const AppContent = () => {
         });
         setCurrentScreen('chat');
       } else if (!isLoading) {
+        // Xóa storage user ID TRƯỚC khi chuyển màn hình
         setCurrentUserId(null);
         setUser(null);
         setCurrentScreen('login');
@@ -104,28 +93,29 @@ const AppContent = () => {
     return false;
   };
 
-  const loginWithFirebaseUser = (firebaseUser: FirebaseUser) => {
-    setUser({
-      id: firebaseUser.uid,
-      name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-      email: firebaseUser.email || '',
-    });
-    setCurrentScreen('chat');
+  const loginWithFirebaseUser = (_firebaseUser: FirebaseUser) => {
+    // Không cần làm gì ở đây — onAuthStateChanged listener sẽ
+    // tự động phát hiện user mới và cập nhật state + screen.
+    // Giữ hàm này để không phá vỡ interface NavigationContext.
   };
 
   const logout = async () => {
     try {
+      // Chỉ gọi Firebase signOut — onAuthStateChanged listener sẽ
+      // tự động xóa user state, reset currentUserId, và chuyển về login.
       await signOutUser();
-      setUser(null);
-      setCurrentScreen('login');
     } catch (error) {
       console.error('Error signing out:', error);
+      // Fallback: nếu Firebase signOut thất bại, vẫn cleanup thủ công
+      setCurrentUserId(null);
+      setUser(null);
+      setCurrentScreen('login');
     }
   };
 
   const renderScreen = () => {
-    if (isLoading || currentScreen === 'loading') {
-      return <LoadingScreen />;
+    if (!isSplashFinished || isLoading || currentScreen === 'loading') {
+      return <SplashScreen onFinish={() => setIsSplashFinished(true)} />;
     }
 
     switch (currentScreen) {
@@ -162,20 +152,3 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingLogoImage: {
-    width: 100,
-    height: 100,
-    marginBottom: 10,
-  },
-  loadingTitle: {
-    fontSize: FontSizes.xxl,
-    fontWeight: 'bold',
-    marginTop: 16,
-  },
-});

@@ -129,17 +129,25 @@ export const signInWithGoogle = async (): Promise<User> => {
  * Đăng xuất
  */
 export const signOutUser = async (): Promise<void> => {
-    try {
-        if (Platform.OS !== 'web') {
+    // Google Sign-Out (nếu có) — thực hiện riêng để không chặn Firebase signOut
+    if (Platform.OS !== 'web') {
+        try {
             const gSignin = getGoogleSignin();
             if (gSignin) {
                 await gSignin.signOut();
             }
+        } catch (googleError) {
+            console.warn('Google Sign-Out error (non-blocking):', googleError);
         }
+    }
+
+    // Firebase Sign-Out — LUÔN LUÔN phải chạy, bất kể Google signOut có lỗi hay không
+    try {
         await signOut(auth);
         console.log('Signed out successfully');
     } catch (error) {
-        console.error('Sign out error:', error);
+        console.error('Firebase Sign out error:', error);
+        throw error; // Re-throw để App.tsx fallback xử lý
     }
 };
 

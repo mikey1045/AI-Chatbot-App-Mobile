@@ -7,7 +7,9 @@ import {
     TouchableOpacity,
     Switch,
     Alert,
+    Image,
     StatusBar,
+    Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -71,9 +73,31 @@ const SettingsScreen: React.FC = () => {
     const { theme, isDarkMode, toggleTheme } = useTheme();
 
     const handleClearHistory = useCallback(() => {
+        const title = 'Xóa lịch sử';
+        const message = 'Bạn có chắc chắn muốn xóa tất cả lịch sử trò chuyện? Hành động này không thể hoàn tác.';
+
+        if (Platform.OS === 'web') {
+            if (window.confirm(`${title}\n\n${message}`)) {
+                const clear = async () => {
+                    try {
+                        const sessions = await getSessions();
+                        for (const session of sessions) {
+                            await deleteSession(session.id);
+                        }
+                        alert('Thành công: Đã xóa tất cả lịch sử trò chuyện.');
+                    } catch (e) {
+                        console.error('Failed to clear history:', e);
+                        alert('Lỗi: Không thể xóa lịch sử. Vui lòng thử lại.');
+                    }
+                };
+                clear();
+            }
+            return;
+        }
+
         Alert.alert(
-            'Xóa lịch sử',
-            'Bạn có chắc chắn muốn xóa tất cả lịch sử trò chuyện? Hành động này không thể hoàn tác.',
+            title,
+            message,
             [
                 { text: 'Hủy', style: 'cancel' },
                 {
@@ -97,9 +121,19 @@ const SettingsScreen: React.FC = () => {
     }, []);
 
     const handleLogout = () => {
+        const title = 'Đăng xuất';
+        const message = 'Bạn có chắc chắn muốn đăng xuất?';
+
+        if (Platform.OS === 'web') {
+            if (window.confirm(`${title}\n\n${message}`)) {
+                logout();
+            }
+            return;
+        }
+
         Alert.alert(
-            'Đăng xuất',
-            'Bạn có chắc chắn muốn đăng xuất?',
+            title,
+            message,
             [
                 { text: 'Hủy', style: 'cancel' },
                 { text: 'Đăng xuất', style: 'destructive', onPress: logout },
@@ -194,9 +228,12 @@ const SettingsScreen: React.FC = () => {
 
                 {/* Footer */}
                 <View style={styles.footer}>
-                    <Text style={[styles.footerLogo, { color: theme.textMuted }]}>V</Text>
+                    <Image
+                        source={require('../../assets/logo.png')}
+                        style={styles.footerLogoImage}
+                        resizeMode="contain"
+                    />
                     <Text style={[styles.footerText, { color: theme.textMuted }]}>VIA AI</Text>
-                    <Text style={[styles.footerSubtext, { color: theme.textSecondary }]}>Made with ❤️ by React Native</Text>
                 </View>
             </ScrollView>
         </SafeAreaView>
@@ -280,10 +317,9 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.xxl,
         marginBottom: Spacing.xxl,
     },
-    footerLogo: {
-        fontSize: 32,
-        fontWeight: '900',
-        fontStyle: 'italic',
+    footerLogoImage: {
+        width: 50,
+        height: 50,
         opacity: 0.5,
     },
     footerText: {
